@@ -1,30 +1,52 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight, FiRotateCw, FiZoomIn, FiZoomOut, FiSettings, FiEye, FiLayers } from 'react-icons/fi'
+import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight, FiSettings, FiLayers, FiZoomIn, FiZoomOut, FiRotateCw, FiEye, FiMaximize2, FiMove } from 'react-icons/fi'
 import './AdvancedMRIViewer.css'
 import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
-import { Niivue, NVImage } from '@niivue/niivue'
+import { Niivue } from '@niivue/niivue'
 
 type ViewType = 'axial' | 'coronal' | 'sagittal'
-type ViewMode = 'single' | 'triple' | '3d' | 'mosaic'
-type RenderMode = '2d' | '3d' | 'multiplanar'
+type ViewMode = 'single' | 'quad' | '3d' | 'mosaic'
 
 interface AdvancedMRIViewerProps {
   volumeData: VolumeData | null
+  placementMode: {
+    active: boolean
+    structureId: number | null
+    color: string | null
+  }
+  onPlacementComplete: () => void
 }
 
 interface ViewSettings {
   brightness: number
   contrast: number
-  colormap: string
   opacity: number
   crosshair: boolean
-  ruler: boolean
-  orientation: string
 }
 
-function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('single')
-  const [renderMode, setRenderMode] = useState<RenderMode>('2d')
+interface ViewState {
+  scale: number
+  offsetX: number
+  offsetY: number
+  isDragging: boolean
+  dragStart: { x: number, y: number } | null
+}
+
+interface CrosshairPosition {
+  x: number
+  y: number
+  pixelX: number
+  pixelY: number
+}
+
+interface VoxelCoordinates {
+  x: number
+  y: number
+  z: number
+}
+
+function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: AdvancedMRIViewerProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('quad')
   const [currentSlices, setCurrentSlices] = useState({
     axial: 0,
     coronal: 0,
@@ -40,102 +62,157 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
     sagittal: []
   })
   const [loading, setLoading] = useState(false)
-  const [leftPanelWidth, setLeftPanelWidth] = useState(50)
-  const [topRightHeight, setTopRightHeight] = useState(50)
-  const [isResizingHorizontal, setIsResizingHorizontal] = useState(false)
-  const [isResizingVertical, setIsResizingVertical] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [settings, setSettings] = useState<ViewSettings>({
     brightness: 0.5,
     contrast: 0.5,
-    colormap: 'gray',
     opacity: 1.0,
-    crosshair: true,
-    ruler: false,
-    orientation: 'neurological'
+    crosshair: true
   })
+  
+  // Individual view states for each orientation
+  const [viewStates, setViewStates] = useState<Record<ViewType, ViewState>>({
+    axial: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null },
+    coronal: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null },
+    sagittal: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null }
+  })
+  
+  const [crosshairPos, setCrosshairPos] = useState<Record<ViewType, CrosshairPosition>>({
+    axial: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 },
+    coronal: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 },
+    sagittal: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 }
+  })
+
+  const [voxelCoords, setVoxelCoords] = useState<VoxelCoordinates>({ x: 0, y: 0, z: 0 })
+  
+  // Placement mode state
+  const [cursorPos, setCursorPos] = useState<{ x: number, y: number } | null>(null)
+  const [placementActive, setPlacementActive] = useState(false)
   
   const containerRef = useRef<HTMLDivElement>(null)
   const niivueRef = useRef<Niivue | null>(null)
   const canvas3DRef = useRef<HTMLCanvasElement>(null)
-  const canvasAxialRef = useRef<HTMLCanvasElement>(null)
-  const canvasCoronalRef = useRef<HTMLCanvasElement>(null)
-  const canvasSagittalRef = useRef<HTMLCanvasElement>(null)
 
-  // Initialize NiiVue for 3D rendering
+  // Update placement state when mode changes
   useEffect(() => {
-    if (renderMode === '3d' && canvas3DRef.current && volumeData) {
+    setPlacementActive(placementMode.active)
+    if (!placementMode.active) {
+      setCursorPos(null)
+    } else {
+      console.log('🎯 Placement mode activated with color:', placementMode.color)
+    }
+  }, [placementMode.active, placementMode.color])
+
+  // Initialize NiiVue for 3D panel
+  useEffect(() => {
+    if (canvas3DRef.current && volumeData && (viewMode === 'quad' || viewMode === '3d')) {
       const initializeNiiVue = async () => {
         try {
+          if (niivueRef.current) {
+            niivueRef.current.updateGLVolume()
+            return
+          }
+
+          console.log('🎨 Initializing NiiVue for 3D view...')
           const nv = new Niivue({
-            logging: true,
-            dragAndDropEnabled: false,
-            backColor: [0.2, 0.2, 0.2, 1],
+            logging: false,
+            dragAndDropEnabled: true,
+            backColor: [0.1, 0.1, 0.1, 1],
             crosshairColor: [0, 1, 0, 1],
             show3Dcrosshair: settings.crosshair,
-            meshShader: 'Default',
-            textHeight: 0.05
+            textHeight: 0.02,
+            isRadiologicalConvention: false
           })
           
-          await nv.attachTo(canvas3DRef.current!)
+          await nv.attachToCanvas(canvas3DRef.current!)
           
-          // Load the volume data
           if (volumeData.nvImage) {
             await nv.addVolume(volumeData.nvImage)
-            nv.setSliceType(nv.sliceTypeMultiplanar)
+            nv.setSliceType(nv.sliceTypeRender)
             nv.setOpacity(0, settings.opacity)
+            nv.setScale(1.0)
             niivueRef.current = nv
+            console.log('✅ NiiVue initialized successfully')
           }
         } catch (error) {
-          console.error('Error initializing NiiVue:', error)
+          console.error('❌ Error initializing NiiVue:', error)
         }
       }
       
       initializeNiiVue()
     }
-    
+
     return () => {
-      if (niivueRef.current) {
+      if (niivueRef.current && viewMode !== 'quad' && viewMode !== '3d') {
         niivueRef.current = null
       }
     }
-  }, [renderMode, volumeData, settings.crosshair, settings.opacity])
+  }, [viewMode, volumeData, settings.crosshair, settings.opacity])
 
   // Extract all slices when volume data changes
   useEffect(() => {
-    if (!volumeData) return
+    if (!volumeData) {
+      console.log('⚠️ No volume data available')
+      return
+    }
 
     const extractAllSlices = async () => {
       setLoading(true)
       try {
-        console.log('Extracting all slices for advanced MRI viewer...')
+        console.log('📸 Starting slice extraction...')
+        console.log('📐 Volume dimensions:', volumeData.dims)
+        
         const axialSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'axial')
         const coronalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'coronal')
         const sagittalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'sagittal')
 
-        const processSlices = (slices: any[]) => 
-          slices.map((data, index) => ({
-            ...data,
-            imageData: MedicalImageLoader.convertToImageData(data),
-            canvas: MedicalImageLoader.createCanvas(MedicalImageLoader.convertToImageData(data))
-          }))
+        const processSlices = (slices: any[]) => {
+          return slices.map((data) => {
+            const imageData = MedicalImageLoader.convertToImageData(data)
+            const canvas = MedicalImageLoader.createCanvas(imageData)
+            return {
+              ...data,
+              imageData,
+              canvas,
+              actualWidth: data.width,
+              actualHeight: data.height
+            }
+          })
+        }
+
+        const processedAxial = processSlices(axialSlices)
+        const processedCoronal = processSlices(coronalSlices)
+        const processedSagittal = processSlices(sagittalSlices)
 
         setAllSlices({
-          axial: processSlices(axialSlices),
-          coronal: processSlices(coronalSlices),
-          sagittal: processSlices(sagittalSlices)
+          axial: processedAxial,
+          coronal: processedCoronal,
+          sagittal: processedSagittal
         })
 
         // Set initial slice positions to middle
+        const midAxial = Math.floor(axialSlices.length / 2)
+        const midCoronal = Math.floor(coronalSlices.length / 2)
+        const midSagittal = Math.floor(sagittalSlices.length / 2)
+
         setCurrentSlices({
-          axial: Math.floor(axialSlices.length / 2),
-          coronal: Math.floor(coronalSlices.length / 2),
-          sagittal: Math.floor(sagittalSlices.length / 2)
+          axial: midAxial,
+          coronal: midCoronal,
+          sagittal: midSagittal
         })
+
+        // Initialize voxel coordinates
+        if (volumeData.dims) {
+          setVoxelCoords({
+            x: Math.floor(volumeData.dims[0] / 2),
+            y: Math.floor(volumeData.dims[1] / 2),
+            z: Math.floor(volumeData.dims[2] / 2)
+          })
+        }
         
-        console.log('All slices extracted for advanced MRI viewer')
+        console.log('🎉 All slices extracted and processed successfully')
       } catch (error) {
-        console.error('Error extracting slices:', error)
+        console.error('❌ Error extracting slices:', error)
       } finally {
         setLoading(false)
       }
@@ -158,32 +235,244 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
         newSlice = current > 0 ? current - 1 : current
       }
 
-      // Update NiiVue if in 3D mode
-      if (niivueRef.current && renderMode === '3d') {
-        const sliceIndex = newSlice / slices.length
-        switch (orientation) {
-          case 'axial':
-            niivueRef.current.setSliceMM(true, sliceIndex)
-            break
-          case 'coronal':
-            niivueRef.current.setSliceMM(false, sliceIndex)
-            break
-          case 'sagittal':
-            niivueRef.current.setSliceMM(false, sliceIndex)
-            break
-        }
+      // Update voxel coordinates based on orientation
+      if (volumeData) {
+        setVoxelCoords(prevCoords => {
+          const newCoords = { ...prevCoords }
+          switch (orientation) {
+            case 'axial':
+              newCoords.z = newSlice
+              break
+            case 'coronal':
+              newCoords.y = newSlice
+              break
+            case 'sagittal':
+              newCoords.x = newSlice
+              break
+          }
+          return newCoords
+        })
       }
 
       return { ...prev, [orientation]: newSlice }
     })
-  }, [allSlices, renderMode])
+  }, [allSlices, volumeData])
+
+  const handleZoom = (orientation: ViewType, delta: number) => {
+    setViewStates(prev => {
+      const current = prev[orientation]
+      const newScale = Math.max(0.5, Math.min(10, current.scale + delta))
+      return {
+        ...prev,
+        [orientation]: { ...current, scale: newScale }
+      }
+    })
+  }
+
+  const handleResetView = (orientation: ViewType) => {
+    setViewStates(prev => ({
+      ...prev,
+      [orientation]: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null }
+    }))
+  }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
+    if (e.button === 0) { // Left click
+      e.preventDefault()
+      
+      // Get the image element to find its actual position and size
+      const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+      if (!imgElement) return
+
+      const imgRect = imgElement.getBoundingClientRect()
+      
+      // Calculate click position relative to the actual image
+      const clickX = e.clientX - imgRect.left
+      const clickY = e.clientY - imgRect.top
+      
+      // Convert to normalized coordinates (0-1)
+      const normalizedX = clickX / imgRect.width
+      const normalizedY = clickY / imgRect.height
+      
+      // Clamp to valid range
+      const clampedX = Math.max(0, Math.min(1, normalizedX))
+      const clampedY = Math.max(0, Math.min(1, normalizedY))
+      
+      // Calculate pixel coordinates
+      const slice = allSlices[orientation][currentSlices[orientation]]
+      const pixelX = Math.floor(clampedX * slice.actualWidth)
+      const pixelY = Math.floor(clampedY * slice.actualHeight)
+      
+      // Check if in placement mode
+      if (placementActive && placementMode.structureId) {
+        // Calculate voxel coordinates based on orientation
+        let voxelX = 0, voxelY = 0, voxelZ = 0
+        
+        switch (orientation) {
+          case 'axial':
+            voxelX = pixelX
+            voxelY = pixelY
+            voxelZ = currentSlices.axial
+            break
+          case 'coronal':
+            voxelX = pixelX
+            voxelZ = volumeData!.dims[2] - 1 - pixelY
+            voxelY = currentSlices.coronal
+            break
+          case 'sagittal':
+            voxelY = pixelX
+            voxelZ = volumeData!.dims[2] - 1 - pixelY
+            voxelX = currentSlices.sagittal
+            break
+        }
+
+        // Add coordinate to structure
+        console.log(`✅ Placing coordinate at: (${voxelX}, ${voxelY}, ${voxelZ})`)
+        console.log(`📍 Structure ID: ${placementMode.structureId}, Color: ${placementMode.color}`)
+        
+        // Call the global function to add coordinate
+        if ((window as any).addCoordinateToStructure) {
+          (window as any).addCoordinateToStructure(placementMode.structureId, {
+            x: voxelX,
+            y: voxelY,
+            z: voxelZ
+          })
+        }
+
+        // Complete placement
+        onPlacementComplete()
+        setCursorPos(null)
+        return
+      }
+      
+      // Normal crosshair mode
+      setCrosshairPos(prev => ({
+        ...prev,
+        [orientation]: { 
+          x: clampedX, 
+          y: clampedY,
+          pixelX,
+          pixelY
+        }
+      }))
+
+      // Update voxel coordinates
+      if (volumeData) {
+        setVoxelCoords(prevCoords => {
+          const newCoords = { ...prevCoords }
+          switch (orientation) {
+            case 'axial':
+              newCoords.x = pixelX
+              newCoords.y = pixelY
+              newCoords.z = currentSlices.axial
+              break
+            case 'coronal':
+              newCoords.x = pixelX
+              newCoords.z = volumeData.dims[2] - 1 - pixelY
+              newCoords.y = currentSlices.coronal
+              break
+            case 'sagittal':
+              newCoords.y = pixelX
+              newCoords.z = volumeData.dims[2] - 1 - pixelY
+              newCoords.x = currentSlices.sagittal
+              break
+          }
+          return newCoords
+        })
+      }
+    } else if (e.button === 2) { // Right click - start panning
+      e.preventDefault()
+      if (!placementActive) {
+        setViewStates(prev => ({
+          ...prev,
+          [orientation]: {
+            ...prev[orientation],
+            isDragging: true,
+            dragStart: { x: e.clientX, y: e.clientY }
+          }
+        }))
+      }
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
+    const viewState = viewStates[orientation]
+    
+    // Handle panning
+    if (viewState.isDragging && viewState.dragStart) {
+      const deltaX = e.clientX - viewState.dragStart.x
+      const deltaY = e.clientY - viewState.dragStart.y
+      
+      setViewStates(prev => ({
+        ...prev,
+        [orientation]: {
+          ...prev[orientation],
+          offsetX: prev[orientation].offsetX + deltaX,
+          offsetY: prev[orientation].offsetY + deltaY,
+          dragStart: { x: e.clientX, y: e.clientY }
+        }
+      }))
+    }
+
+    // Handle placement mode cursor tracking
+    if (placementActive) {
+      const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+      if (!imgElement) return
+
+      const imgRect = imgElement.getBoundingClientRect()
+      const x = e.clientX - imgRect.left
+      const y = e.clientY - imgRect.top
+
+      // Only update if within image bounds
+      if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
+        setCursorPos({ x: x / imgRect.width, y: y / imgRect.height })
+      } else {
+        setCursorPos(null)
+      }
+    }
+  }
+
+  const handleMouseUp = (orientation: ViewType) => {
+    setViewStates(prev => ({
+      ...prev,
+      [orientation]: {
+        ...prev[orientation],
+        isDragging: false,
+        dragStart: null
+      }
+    }))
+  }
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
+    e.preventDefault()
+    
+    // Check if Ctrl/Cmd is pressed for zoom
+    if (e.ctrlKey || e.metaKey) {
+      const delta = e.deltaY > 0 ? -0.1 : 0.1
+      handleZoom(orientation, delta)
+    } else {
+      // Navigate slices with mouse wheel
+      const direction = e.deltaY > 0 ? 'next' : 'prev'
+      handleSliceChange(orientation, direction)
+    }
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!volumeData) return
 
+      // Don't handle shortcuts in placement mode (except ESC)
+      if (placementActive && e.key !== 'Escape') return
+
       switch (e.key) {
+        case 'Escape':
+          if (placementActive) {
+            console.log('❌ Placement cancelled')
+            onPlacementComplete()
+            setCursorPos(null)
+          }
+          break
         case 'ArrowUp':
           e.preventDefault()
           handleSliceChange('axial', 'next')
@@ -203,107 +492,38 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
         case '1':
           setViewMode('single')
           break
-        case '2':
-          setViewMode('triple')
+        case '4':
+          setViewMode('quad')
           break
         case '3':
           setViewMode('3d')
-          setRenderMode('3d')
+          break
+        case 'm':
+        case 'M':
+          setViewMode('mosaic')
           break
         case 'c':
+        case 'C':
           setSettings(prev => ({ ...prev, crosshair: !prev.crosshair }))
           break
         case 'r':
-          setSettings(prev => ({ ...prev, ruler: !prev.ruler }))
+        case 'R':
+          handleResetView('axial')
+          handleResetView('coronal')
+          handleResetView('sagittal')
           break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleSliceChange, volumeData])
+  }, [handleSliceChange, volumeData, placementActive, onPlacementComplete])
 
   const handleSettingChange = (key: keyof ViewSettings, value: any) => {
-    setSettings(prev => {
-      const newSettings = { ...prev, [key]: value }
-      
-      // Apply settings to NiiVue if in 3D mode
-      if (niivueRef.current && renderMode === '3d') {
-        switch (key) {
-          case 'brightness':
-            // niivueRef.current.setBrightness(value)
-            break
-          case 'contrast':
-            // niivueRef.current.setContrast(value)
-            break
-          case 'opacity':
-            niivueRef.current.setOpacity(0, value)
-            break
-          case 'crosshair':
-            niivueRef.current.opts.show3Dcrosshair = value
-            niivueRef.current.drawScene()
-            break
-        }
-      }
-      
-      return newSettings
-    })
+    setSettings(prev => ({ ...prev, [key]: value }))
   }
 
-  // Horizontal resize handler
-  const handleHorizontalMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizingHorizontal(true)
-    
-    const startX = e.clientX
-    const startWidth = leftPanelWidth
-    const containerWidth = containerRef.current?.offsetWidth || 0
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - startX
-      const deltaPercentage = (deltaX / containerWidth) * 100
-      const newWidth = Math.min(Math.max(startWidth + deltaPercentage, 20), 80)
-      setLeftPanelWidth(newWidth)
-    }
-    
-    const handleMouseUp = () => {
-      setIsResizingHorizontal(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-    
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }
-
-  // Vertical resize handler
-  const handleVerticalMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizingVertical(true)
-    
-    const startY = e.clientY
-    const startHeight = topRightHeight
-    const rightPanel = e.currentTarget.closest('.right-panel') as HTMLElement
-    const containerHeight = rightPanel?.offsetHeight || 0
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaY = e.clientY - startY
-      const deltaPercentage = (deltaY / containerHeight) * 100
-      const newHeight = Math.min(Math.max(startHeight + deltaPercentage, 20), 80)
-      setTopRightHeight(newHeight)
-    }
-    
-    const handleMouseUp = () => {
-      setIsResizingVertical(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-    
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }
-
-  const renderSliceImage = (orientation: ViewType) => {
+  const renderSliceView = (orientation: ViewType) => {
     const slices = allSlices[orientation]
     const currentSlice = currentSlices[orientation]
     
@@ -311,44 +531,240 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
       return (
         <div className="slice-placeholder">
           <div className="loading-spinner"></div>
-          <span>Loading {orientation} slice...</span>
+          <span>Loading {orientation}</span>
         </div>
       )
     }
 
-    const canvas = slices[currentSlice].canvas
+    const slice = slices[currentSlice]
+    const canvas = slice.canvas
     const dataUrl = canvas.toDataURL()
+    const viewState = viewStates[orientation]
+    const crosshair = crosshairPos[orientation]
+
+    const actualWidth = slice.actualWidth || slice.width
+    const actualHeight = slice.actualHeight || slice.height
+
+    // Determine cursor style and color
+    const cursorStyle = placementActive ? 'crosshair' : (viewState.isDragging ? 'grabbing' : (viewState.scale > 1 ? 'grab' : 'crosshair'))
+    const crosshairColor = placementActive && placementMode.color ? placementMode.color : '#7ddb94'
 
     return (
-      <div className="slice-viewer">
-        <img 
-          src={dataUrl} 
-          alt={`${orientation} slice ${currentSlice + 1}`}
-          className="slice-image"
-          style={{
-            filter: `brightness(${settings.brightness * 2}) contrast(${settings.contrast * 2})`,
-            opacity: settings.opacity
-          }}
-        />
-        {settings.crosshair && <div className="crosshair" />}
+      <div 
+        className="slice-viewer-container"
+        onMouseDown={(e) => handleMouseDown(e, orientation)}
+        onMouseMove={(e) => handleMouseMove(e, orientation)}
+        onMouseUp={() => handleMouseUp(orientation)}
+        onMouseLeave={() => {
+          handleMouseUp(orientation)
+          if (placementActive) setCursorPos(null)
+        }}
+        onWheel={(e) => handleWheel(e, orientation)}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{
+          cursor: cursorStyle
+        }}
+      >
+        {placementActive && (
+          <div className="placement-overlay">
+            <div className="placement-message">
+              🎯 Click to place coordinate (ESC to cancel)
+            </div>
+          </div>
+        )}
+        
+        <div className="slice-viewer-wrapper">
+          <div 
+            className="slice-image-holder"
+            style={{
+              transform: `scale(${viewState.scale}) translate(${viewState.offsetX / viewState.scale}px, ${viewState.offsetY / viewState.scale}px)`,
+              transformOrigin: 'center center',
+              position: 'relative',
+              display: 'inline-block'
+            }}
+          >
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img 
+                src={dataUrl} 
+                alt={`${orientation} slice ${currentSlice + 1}`}
+                className="slice-image"
+                style={{
+                  filter: `brightness(${settings.brightness * 2}) contrast(${settings.contrast * 2})`,
+                  opacity: settings.opacity,
+                  width: `${actualWidth}px`,
+                  height: `${actualHeight}px`,
+                  imageRendering: 'pixelated',
+                  display: 'block'
+                }}
+                draggable={false}
+              />
+              
+              {/* Show crosshair (normal mode) or placement cursor (placement mode) */}
+              {settings.crosshair && (
+                <div 
+                  className="crosshair-overlay"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: `${actualWidth}px`,
+                    height: `${actualHeight}px`,
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {placementActive && cursorPos ? (
+                    // Placement mode cursor
+                    <>
+                      <div 
+                        className="crosshair-horizontal placement-cursor" 
+                        style={{ 
+                          top: `${cursorPos.y * actualHeight}px`,
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          height: '2px',
+                          backgroundColor: crosshairColor,
+                          boxShadow: `0 0 8px ${crosshairColor}`,
+                          transform: 'translateY(-1px)',
+                          opacity: 0.9
+                        }}
+                      />
+                      <div 
+                        className="crosshair-vertical placement-cursor" 
+                        style={{ 
+                          left: `${cursorPos.x * actualWidth}px`,
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          width: '2px',
+                          backgroundColor: crosshairColor,
+                          boxShadow: `0 0 8px ${crosshairColor}`,
+                          transform: 'translateX(-1px)',
+                          opacity: 0.9
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${cursorPos.x * actualWidth}px`,
+                          top: `${cursorPos.y * actualHeight}px`,
+                          width: '10px',
+                          height: '10px',
+                          backgroundColor: crosshairColor,
+                          borderRadius: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          boxShadow: `0 0 10px ${crosshairColor}`,
+                          border: '2px solid rgba(255, 255, 255, 0.9)',
+                          animation: 'pulseDot 1.5s ease-in-out infinite'
+                        }}
+                      />
+                    </>
+                  ) : (
+                    // Normal crosshair
+                    <>
+                      <div 
+                        className="crosshair-horizontal" 
+                        style={{ 
+                          top: `${crosshair.y * actualHeight}px`,
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          height: '1px',
+                          backgroundColor: crosshairColor,
+                          boxShadow: `0 0 4px ${crosshairColor}`,
+                          transform: 'translateY(-0.5px)'
+                        }}
+                      />
+                      <div 
+                        className="crosshair-vertical" 
+                        style={{ 
+                          left: `${crosshair.x * actualWidth}px`,
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          width: '1px',
+                          backgroundColor: crosshairColor,
+                          boxShadow: `0 0 4px ${crosshairColor}`,
+                          transform: 'translateX(-0.5px)'
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${crosshair.x * actualWidth}px`,
+                          top: `${crosshair.y * actualHeight}px`,
+                          width: '5px',
+                          height: '5px',
+                          backgroundColor: crosshairColor,
+                          borderRadius: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          boxShadow: `0 0 6px ${crosshairColor}`,
+                          border: '1px solid rgba(255, 255, 255, 0.8)'
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Slice Navigation Controls */}
         <div className="slice-controls">
           <button 
             className="slice-nav-btn"
-            onClick={() => handleSliceChange(orientation, 'prev')}
+            onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'prev'); }}
             disabled={currentSlice === 0}
           >
-            <FiChevronLeft size={16} />
+            <FiChevronLeft size={14} />
           </button>
           <span className="slice-counter">
-            {currentSlice + 1} / {slices.length}
+            {currentSlice + 1}/{slices.length}
           </span>
           <button 
             className="slice-nav-btn"
-            onClick={() => handleSliceChange(orientation, 'next')}
+            onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'next'); }}
             disabled={currentSlice === slices.length - 1}
           >
-            <FiChevronRight size={16} />
+            <FiChevronRight size={14} />
           </button>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="zoom-controls">
+          <button 
+            className="zoom-btn"
+            onClick={(e) => { e.stopPropagation(); handleZoom(orientation, 0.2); }}
+            title="Zoom In"
+          >
+            <FiZoomIn size={14} />
+          </button>
+          <span className="zoom-level">{Math.round(viewState.scale * 100)}%</span>
+          <button 
+            className="zoom-btn"
+            onClick={(e) => { e.stopPropagation(); handleZoom(orientation, -0.2); }}
+            title="Zoom Out"
+          >
+            <FiZoomOut size={14} />
+          </button>
+          <button 
+            className="zoom-btn"
+            onClick={(e) => { e.stopPropagation(); handleResetView(orientation); }}
+            title="Reset View"
+          >
+            <FiRotateCw size={14} />
+          </button>
+        </div>
+
+        {/* Dimension Info */}
+        <div className="dimension-info">
+          {actualWidth}×{actualHeight}px
+        </div>
+
+        {/* Pixel Coordinates Display */}
+        <div className="pixel-coords-info">
+          Pixel: ({crosshair.pixelX}, {crosshair.pixelY})
         </div>
       </div>
     )
@@ -357,11 +773,15 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
   const renderMosaicView = () => {
     const axialSlices = allSlices.axial
     const itemsPerRow = 6
-    const totalItems = Math.min(24, axialSlices.length)
+    const totalItems = Math.min(30, axialSlices.length)
     const startIndex = Math.max(0, currentSlices.axial - Math.floor(totalItems / 2))
     
     return (
       <div className="mosaic-view">
+        <div className="mosaic-header">
+          <h3>Axial Slices Overview</h3>
+          <span>Showing {totalItems} of {axialSlices.length} slices</span>
+        </div>
         <div className="mosaic-grid">
           {Array.from({ length: totalItems }, (_, i) => {
             const sliceIndex = startIndex + i
@@ -397,13 +817,33 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
       <div className="advanced-mri-viewer">
         <div className="viewer-topbar">
           <div className="topbar-left">
-            <span className="viewer-title">Advanced MRI Viewer</span>
+            <span className="viewer-title">MRI Viewer</span>
           </div>
         </div>
         <div className="viewer-content">
           <div className="loading-viewer">
             <div className="loading-spinner large"></div>
-            <p>Loading advanced MRI viewer...</p>
+            <p>Loading MRI viewer...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!volumeData) {
+    return (
+      <div className="advanced-mri-viewer">
+        <div className="viewer-topbar">
+          <div className="topbar-left">
+            <span className="viewer-title">MRI Viewer</span>
+          </div>
+        </div>
+        <div className="viewer-content">
+          <div className="loading-viewer">
+            <p style={{ color: '#ff6b6b' }}>⚠️ No MRI data loaded</p>
+            <p style={{ color: '#999', fontSize: '0.8rem' }}>
+              Please ensure brain.nii.gz is in the public folder
+            </p>
           </div>
         </div>
       </div>
@@ -412,47 +852,51 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
 
   return (
     <div className="advanced-mri-viewer">
-      {/* Enhanced Topbar */}
+      {/* Compact Topbar */}
       <div className="viewer-topbar">
         <div className="topbar-left">
-          <span className="viewer-title">Advanced MRI Viewer</span>
+          <span className="viewer-title">MRI Viewer</span>
           {volumeData && (
-            <span className="volume-dims">
-              {volumeData.dims[0]}×{volumeData.dims[1]}×{volumeData.dims[2]}
-            </span>
+            <>
+              <span className="volume-dims">
+                {volumeData.dims[0]}×{volumeData.dims[1]}×{volumeData.dims[2]}
+              </span>
+              <span className="voxel-coords">
+                Voxel: ({voxelCoords.x}, {voxelCoords.y}, {voxelCoords.z})
+              </span>
+            </>
           )}
-          <span className="render-mode">{renderMode.toUpperCase()}</span>
         </div>
         
         <div className="topbar-center">
           <div className="view-controls">
             <button 
               className={`view-btn ${viewMode === 'single' ? 'active' : ''}`}
-              onClick={() => { setViewMode('single'); setRenderMode('2d'); }}
-              title="Single view"
+              onClick={() => setViewMode('single')}
+              title="Single view (1)"
             >
-              <FiSquare size={16} />
+              <FiSquare size={14} />
             </button>
             <button 
-              className={`view-btn ${viewMode === 'triple' ? 'active' : ''}`}
-              onClick={() => { setViewMode('triple'); setRenderMode('2d'); }}
-              title="Triple view"
+              className={`view-btn ${viewMode === 'quad' ? 'active' : ''}`}
+              onClick={() => setViewMode('quad')}
+              title="4-Panel view (4)"
             >
-              <FiGrid size={16} />
+              <FiGrid size={14} />
             </button>
             <button 
               className={`view-btn ${viewMode === '3d' ? 'active' : ''}`}
-              onClick={() => { setViewMode('3d'); setRenderMode('3d'); }}
-              title="3D view"
+              onClick={() => setViewMode('3d')}
+              title="3D view (3)"
             >
-              <FiLayers size={16} />
+              <FiLayers size={14} />
             </button>
             <button 
               className={`view-btn ${viewMode === 'mosaic' ? 'active' : ''}`}
-              onClick={() => { setViewMode('mosaic'); setRenderMode('2d'); }}
-              title="Mosaic view"
+              onClick={() => setViewMode('mosaic')}
+              title="Mosaic view (M)"
             >
-              <FiEye size={16} />
+              <FiEye size={14} />
             </button>
           </div>
         </div>
@@ -463,7 +907,7 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
             onClick={() => setShowSettings(!showSettings)}
             title="Settings"
           >
-            <FiSettings size={18} />
+            <FiSettings size={16} />
           </button>
         </div>
       </div>
@@ -496,31 +940,11 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
             <span>{Math.round(settings.contrast * 100)}%</span>
           </div>
           <div className="settings-row">
-            <label>Opacity:</label>
-            <input 
-              type="range" 
-              min="0" 
-              max="1" 
-              step="0.1" 
-              value={settings.opacity}
-              onChange={(e) => handleSettingChange('opacity', parseFloat(e.target.value))}
-            />
-            <span>{Math.round(settings.opacity * 100)}%</span>
-          </div>
-          <div className="settings-row">
-            <label>Crosshair:</label>
+            <label>Crosshair (C):</label>
             <input 
               type="checkbox" 
               checked={settings.crosshair}
               onChange={(e) => handleSettingChange('crosshair', e.target.checked)}
-            />
-          </div>
-          <div className="settings-row">
-            <label>Ruler:</label>
-            <input 
-              type="checkbox" 
-              checked={settings.ruler}
-              onChange={(e) => handleSettingChange('ruler', e.target.checked)}
             />
           </div>
         </div>
@@ -528,62 +952,66 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
 
       {/* Viewer Content */}
       <div className="viewer-content" ref={containerRef}>
-        {viewMode === 'single' && renderMode === '2d' && (
+        {viewMode === 'single' && (
           <div className="single-view">
-            {renderSliceImage('axial')}
+            {renderSliceView('axial')}
           </div>
         )}
 
-        {viewMode === 'triple' && renderMode === '2d' && (
-          <div className="triple-view">
-            <div 
-              className="left-panel"
-              style={{ width: `${leftPanelWidth}%` }}
-            >
-              <div className="view-panel axial-panel">
-                <div className="panel-header">Axial View</div>
-                {renderSliceImage('axial')}
+        {viewMode === 'quad' && (
+          <div className="quad-view-columns">
+            {/* Column 1: Axial */}
+            <div className="quad-column">
+              <div className="quad-panel">
+                <div className="panel-header">
+                  <span>Axial View</span>
+                  <FiMove size={12} style={{ opacity: 0.6 }} />
+                </div>
+                {renderSliceView('axial')}
               </div>
             </div>
-
-            <div 
-              className={`resize-handle horizontal ${isResizingHorizontal ? 'resizing' : ''}`}
-              onMouseDown={handleHorizontalMouseDown}
-            >
-              <div className="resize-line"></div>
+            
+            {/* Column 2: Coronal */}
+            <div className="quad-column">
+              <div className="quad-panel">
+                <div className="panel-header">
+                  <span>Coronal View</span>
+                  <FiMove size={12} style={{ opacity: 0.6 }} />
+                </div>
+                {renderSliceView('coronal')}
+              </div>
             </div>
-
-            <div 
-              className="right-panel"
-              style={{ width: `${100 - leftPanelWidth - 1}%` }}
-            >
-              <div 
-                className="view-panel coronal-panel"
-                style={{ height: `${topRightHeight}%` }}
-              >
-                <div className="panel-header">Coronal View</div>
-                {renderSliceImage('coronal')}
+            
+            {/* Column 3: Sagittal */}
+            <div className="quad-column">
+              <div className="quad-panel">
+                <div className="panel-header">
+                  <span>Sagittal View</span>
+                  <FiMove size={12} style={{ opacity: 0.6 }} />
+                </div>
+                {renderSliceView('sagittal')}
               </div>
-
-              <div 
-                className={`resize-handle vertical ${isResizingVertical ? 'resizing' : ''}`}
-                onMouseDown={handleVerticalMouseDown}
-              >
-                <div className="resize-line"></div>
-              </div>
-
-              <div 
-                className="view-panel sagittal-panel"
-                style={{ height: `${100 - topRightHeight - 1}%` }}
-              >
-                <div className="panel-header">Sagittal View</div>
-                {renderSliceImage('sagittal')}
+            </div>
+            
+            {/* Column 4: 3D View */}
+            <div className="quad-column">
+              <div className="quad-panel">
+                <div className="panel-header">
+                  <span>3D Render</span>
+                  <FiMaximize2 size={12} style={{ opacity: 0.6 }} />
+                </div>
+                <div className="threed-container">
+                  <canvas 
+                    ref={canvas3DRef}
+                    className="niivue-canvas"
+                  />
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {viewMode === '3d' && renderMode === '3d' && (
+        {viewMode === '3d' && (
           <div className="threed-view">
             <canvas 
               ref={canvas3DRef}
@@ -592,12 +1020,15 @@ function AdvancedMRIViewer({ volumeData }: AdvancedMRIViewerProps) {
           </div>
         )}
 
-        {viewMode === 'mosaic' && renderMode === '2d' && renderMosaicView()}
+        {viewMode === 'mosaic' && renderMosaicView()}
       </div>
 
-      {/* Keyboard shortcuts info */}
+      {/* Shortcuts info */}
       <div className="shortcuts-info">
-        <span>Shortcuts: ↑↓ Axial | ←→ Coronal | 1,2,3 Views | C Crosshair | R Ruler</span>
+        {placementActive 
+          ? '🎯 Placement Mode: Click to place | ESC to cancel'
+          : 'Left Click: Crosshair | Right Click: Pan | Wheel: Slices | Ctrl+Wheel: Zoom | R: Reset | 1,4,3,M: Views'
+        }
       </div>
     </div>
   )
