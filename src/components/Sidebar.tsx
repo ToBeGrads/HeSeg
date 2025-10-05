@@ -14,9 +14,10 @@ interface Structure {
 interface SidebarProps {
   isVisible: boolean
   onToggle: () => void
+  onStartPlacement?: (structureId: number, color: string) => void
 }
 
-function Sidebar({ isVisible, onToggle }: SidebarProps) {
+function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
   const [structures, setStructures] = useState<Structure[]>([
     {
       id: 1, 
@@ -54,7 +55,7 @@ function Sidebar({ isVisible, onToggle }: SidebarProps) {
 
   const handleAddNewStructure = (title: string, color: string) => {
     const newStructure: Structure = {
-      id: Date.now(), // Simple ID generation
+      id: Date.now(),
       title,
       color,
       coordinates: []
@@ -62,7 +63,29 @@ function Sidebar({ isVisible, onToggle }: SidebarProps) {
     setStructures([...structures, newStructure])
   }
 
+  const handleAddCoordinate = (structureId: number) => {
+    const structure = structures.find(s => s.id === structureId)
+    if (structure && onStartPlacement) {
+      onStartPlacement(structureId, structure.color)
+    }
+  }
+
+  const handleCoordinateAdded = (structureId: number, coordinate: { x: number, y: number, z: number }) => {
+    setStructures(prevStructures => 
+      prevStructures.map(structure => 
+        structure.id === structureId
+          ? { ...structure, coordinates: [...structure.coordinates, coordinate] }
+          : structure
+      )
+    )
+    
+  }
+  
+
   const existingColors = structures.map(structure => structure.color)
+
+  // Expose method to add coordinates from parent
+  ;(window as any).addCoordinateToStructure = handleCoordinateAdded
 
   return (
     <>
@@ -90,7 +113,7 @@ function Sidebar({ isVisible, onToggle }: SidebarProps) {
               title={structure.title}
               color={structure.color}
               coordinates={structure.coordinates}
-              onAdd={() => console.log(`Add to ${structure.title}`)}
+              onAdd={() => handleAddCoordinate(structure.id)}
             />
           ))}
         </div>

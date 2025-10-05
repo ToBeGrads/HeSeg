@@ -6,22 +6,54 @@ import Sidebar from './components/Sidebar'
 
 function App() {
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
+  const [placementMode, setPlacementMode] = useState<{
+    active: boolean
+    structureId: number | null
+    color: string | null
+  }>({
+    active: false,
+    structureId: null,
+    color: null
+  })
 
   const handleToggleSidebar = () => {
     setIsSidebarVisible(!isSidebarVisible)
   }
 
+  const handleStartPlacement = (structureId: number, color: string) => {
+    console.log('🎯 Starting placement mode for structure:', structureId, 'with color:', color)
+    setPlacementMode({
+      active: true,
+      structureId,
+      color
+    })
+  }
+
+  const handlePlacementComplete = () => {
+    console.log('✅ Placement mode completed')
+    setPlacementMode({
+      active: false,
+      structureId: null,
+      color: null
+    })
+  }
+
   return (
-    <div className="app">
-      <Header />
-      <div className="app-body">
-        <Sidebar 
-          isVisible={isSidebarVisible} 
-          onToggle={handleToggleSidebar} 
-        />
-        <MainContent />
+    
+      <div className="app">
+        <Header />
+        <div className="app-body">
+          <Sidebar 
+            isVisible={isSidebarVisible} 
+            onToggle={handleToggleSidebar}
+            onStartPlacement={handleStartPlacement}
+          />
+          <MainContent 
+            placementMode={placementMode}
+            onPlacementComplete={handlePlacementComplete}
+          />
+        </div>
       </div>
-    </div>
   )
 }
 
