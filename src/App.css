@@ -1,0 +1,48 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.app {
+  height: 100vh;
+  width: 100vw;
+  background-color: rgb(73, 73, 73);
+  color: aliceblue;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .app-body {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .app {
+    height: 100vh;
+    width: 100vw;
+  }
+}
+
+/* Smooth transitions */
+@media (prefers-reduced-motion: no-preference) {
+  .app-body > * {
+    transition: all 0.3s ease;
+  }
+}
