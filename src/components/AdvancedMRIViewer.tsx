@@ -13,6 +13,9 @@ interface AdvancedMRIViewerProps {
     active: boolean
     structureId: number | null
     color: string | null
+    isEditing: boolean
+    editingCoordinateIndex: number | null
+    currentCoordinate: { x: number, y: number, z: number } | null
   }
   onPlacementComplete: () => void
 }
@@ -28,8 +31,6 @@ interface ViewState {
   scale: number
   offsetX: number
   offsetY: number
-  isDragging: boolean
-  dragStart: { x: number, y: number } | null
 }
 
 interface CrosshairPosition {
@@ -72,9 +73,9 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   
   // Individual view states for each orientation
   const [viewStates, setViewStates] = useState<Record<ViewType, ViewState>>({
-    axial: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null },
-    coronal: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null },
-    sagittal: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null }
+    axial: { scale: 1, offsetX: 0, offsetY: 0 },
+    coronal: { scale: 1, offsetX: 0, offsetY: 0 },
+    sagittal: { scale: 1, offsetX: 0, offsetY: 0 }
   })
   
   const [crosshairPos, setCrosshairPos] = useState<Record<ViewType, CrosshairPosition>>({
@@ -86,8 +87,35 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   const [voxelCoords, setVoxelCoords] = useState<VoxelCoordinates>({ x: 0, y: 0, z: 0 })
   
   // Placement mode state
-  const [cursorPos, setCursorPos] = useState<{ x: number, y: number } | null>(null)
   const [placementActive, setPlacementActive] = useState(false)
+  
+  // Preview coordinate state
+  const [previewCoordinate, setPreviewCoordinate] = useState<{
+    x: number
+    y: number
+    z: number
+    orientation: ViewType
+  } | null>(null)
+  
+  // Hover crosshair for placement mode (before clicking)
+  const [hoverCrosshair, setHoverCrosshair] = useState<Record<ViewType, { x: number, y: number } | null>>({
+    axial: null,
+    coronal: null,
+    sagittal: null
+  })
+  
+  // Panning state
+  const [isPanning, setIsPanning] = useState<Record<ViewType, boolean>>({
+    axial: false,
+    coronal: false,
+    sagittal: false
+  })
+
+  const [panStart, setPanStart] = useState<Record<ViewType, { x: number, y: number } | null>>({
+    axial: null,
+    coronal: null,
+    sagittal: null
+  })
   
   const containerRef = useRef<HTMLDivElement>(null)
   const niivueRef = useRef<Niivue | null>(null)
@@ -97,11 +125,27 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   useEffect(() => {
     setPlacementActive(placementMode.active)
     if (!placementMode.active) {
-      setCursorPos(null)
+      setPreviewCoordinate(null)
+      setHoverCrosshair({
+        axial: null,
+        coronal: null,
+        sagittal: null
+      })
     } else {
-      console.log('🎯 Placement mode activated with color:', placementMode.color)
+      if (placementMode.isEditing && placementMode.currentCoordinate) {
+        console.log('✏️ Edit mode activated for coordinate:', placementMode.currentCoordinate)
+        // Set the preview coordinate immediately for editing
+        setPreviewCoordinate({
+          x: placementMode.currentCoordinate.x,
+          y: placementMode.currentCoordinate.y,
+          z: placementMode.currentCoordinate.z,
+          orientation: 'axial' // Default, will be updated based on click
+        })
+      } else {
+        console.log('🎯 Placement mode activated with color:', placementMode.color)
+      }
     }
-  }, [placementMode.active, placementMode.color])
+  }, [placementMode.active, placementMode.color, placementMode.isEditing, placementMode.currentCoordinate])
 
   // Initialize NiiVue for 3D panel
   useEffect(() => {
@@ -113,7 +157,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             return
           }
 
-          console.log('🎨 Initializing NiiVue for 3D view...')
           const nv = new Niivue({
             logging: false,
             dragAndDropEnabled: true,
@@ -132,7 +175,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             nv.setOpacity(0, settings.opacity)
             nv.setScale(1.0)
             niivueRef.current = nv
-            console.log('✅ NiiVue initialized successfully')
           }
         } catch (error) {
           console.error('❌ Error initializing NiiVue:', error)
@@ -160,7 +202,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       setLoading(true)
       try {
         console.log('📸 Starting slice extraction...')
-        console.log('📐 Volume dimensions:', volumeData.dims)
         
         const axialSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'axial')
         const coronalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'coronal')
@@ -272,29 +313,43 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   const handleResetView = (orientation: ViewType) => {
     setViewStates(prev => ({
       ...prev,
-      [orientation]: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, dragStart: null }
+      [orientation]: { scale: 1, offsetX: 0, offsetY: 0 }
     }))
   }
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
+    // Check if click is on a control element
+    const target = e.target as HTMLElement
+    if (target.closest('.slice-controls') || 
+        target.closest('.zoom-controls') || 
+        target.closest('.dimension-info') || 
+        target.closest('.pixel-coords-info') ||
+        target.closest('.placement-overlay') ||
+        target.closest('.preview-controls-bottom')) {
+      return
+    }
+
     if (e.button === 0) { // Left click
       e.preventDefault()
       
-      // Get the image element to find its actual position and size
+      // Get the image element
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
 
       const imgRect = imgElement.getBoundingClientRect()
       
-      // Calculate click position relative to the actual image
+      // Check if click is on the image
       const clickX = e.clientX - imgRect.left
       const clickY = e.clientY - imgRect.top
       
-      // Convert to normalized coordinates (0-1)
+      if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
+        return
+      }
+      
+      // Convert to normalized coordinates
       const normalizedX = clickX / imgRect.width
       const normalizedY = clickY / imgRect.height
       
-      // Clamp to valid range
       const clampedX = Math.max(0, Math.min(1, normalizedX))
       const clampedY = Math.max(0, Math.min(1, normalizedY))
       
@@ -303,9 +358,20 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       const pixelX = Math.floor(clampedX * slice.actualWidth)
       const pixelY = Math.floor(clampedY * slice.actualHeight)
       
+      // Update crosshair position
+      setCrosshairPos(prev => ({
+        ...prev,
+        [orientation]: { 
+          x: clampedX, 
+          y: clampedY,
+          pixelX,
+          pixelY
+        }
+      }))
+      
       // Check if in placement mode
       if (placementActive && placementMode.structureId) {
-        // Calculate voxel coordinates based on orientation
+        // Calculate voxel coordinates
         let voxelX = 0, voxelY = 0, voxelZ = 0
         
         switch (orientation) {
@@ -326,37 +392,40 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             break
         }
 
-        // Add coordinate to structure
-        console.log(`✅ Placing coordinate at: (${voxelX}, ${voxelY}, ${voxelZ})`)
-        console.log(`📍 Structure ID: ${placementMode.structureId}, Color: ${placementMode.color}`)
+        console.log(`📍 Preview coordinate at: (${voxelX}, ${voxelY}, ${voxelZ})`)
         
-        // Call the global function to add coordinate
-        if ((window as any).addCoordinateToStructure) {
-          (window as any).addCoordinateToStructure(placementMode.structureId, {
-            x: voxelX,
-            y: voxelY,
-            z: voxelZ
-          })
-        }
+        // Set preview coordinate
+        setPreviewCoordinate({
+          x: voxelX,
+          y: voxelY,
+          z: voxelZ,
+          orientation
+        })
 
-        // Complete placement
-        onPlacementComplete()
-        setCursorPos(null)
+        // Only zoom if current zoom is less than 2.5x
+        const currentScale = viewStates[orientation].scale
+        if (currentScale < 2.5) {
+          const targetZoom = 2.5
+          setViewStates(prev => ({
+            ...prev,
+            [orientation]: {
+              scale: targetZoom,
+              offsetX: (0.5 - clampedX) * imgRect.width * (targetZoom - 1),
+              offsetY: (0.5 - clampedY) * imgRect.height * (targetZoom - 1)
+            }
+          }))
+        }
+        
+        // Clear hover crosshair
+        setHoverCrosshair(prev => ({
+          ...prev,
+          [orientation]: null
+        }))
+        
         return
       }
-      
-      // Normal crosshair mode
-      setCrosshairPos(prev => ({
-        ...prev,
-        [orientation]: { 
-          x: clampedX, 
-          y: clampedY,
-          pixelX,
-          pixelY
-        }
-      }))
 
-      // Update voxel coordinates
+      // Normal mode - update voxel coordinates
       if (volumeData) {
         setVoxelCoords(prevCoords => {
           const newCoords = { ...prevCoords }
@@ -380,42 +449,43 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           return newCoords
         })
       }
-    } else if (e.button === 2) { // Right click - start panning
+    } else if (e.button === 2) { // Right click - start panning (only when zoomed)
       e.preventDefault()
-      if (!placementActive) {
-        setViewStates(prev => ({
-          ...prev,
-          [orientation]: {
-            ...prev[orientation],
-            isDragging: true,
-            dragStart: { x: e.clientX, y: e.clientY }
-          }
-        }))
+      const viewState = viewStates[orientation]
+      
+      // Only allow panning when zoomed in
+      if (viewState.scale > 1) {
+        setIsPanning(prev => ({ ...prev, [orientation]: true }))
+        setPanStart(prev => ({ ...prev, [orientation]: { x: e.clientX, y: e.clientY } }))
       }
     }
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
-    const viewState = viewStates[orientation]
-    
-    // Handle panning
-    if (viewState.isDragging && viewState.dragStart) {
-      const deltaX = e.clientX - viewState.dragStart.x
-      const deltaY = e.clientY - viewState.dragStart.y
+    // Handle panning when right mouse button is held
+    if (isPanning[orientation] && panStart[orientation]) {
+      const deltaX = e.clientX - panStart[orientation]!.x
+      const deltaY = e.clientY - panStart[orientation]!.y
       
       setViewStates(prev => ({
         ...prev,
         [orientation]: {
           ...prev[orientation],
           offsetX: prev[orientation].offsetX + deltaX,
-          offsetY: prev[orientation].offsetY + deltaY,
-          dragStart: { x: e.clientX, y: e.clientY }
+          offsetY: prev[orientation].offsetY + deltaY
         }
       }))
+      
+      setPanStart(prev => ({
+        ...prev,
+        [orientation]: { x: e.clientX, y: e.clientY }
+      }))
+      
+      return
     }
-
-    // Handle placement mode cursor tracking
-    if (placementActive) {
+    
+    // Only show hover crosshair in placement mode BEFORE clicking
+    if (placementActive && !previewCoordinate) {
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
 
@@ -423,38 +493,97 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
 
-      // Only update if within image bounds
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
-        setCursorPos({ x: x / imgRect.width, y: y / imgRect.height })
+        const normalizedX = x / imgRect.width
+        const normalizedY = y / imgRect.height
+        
+        setHoverCrosshair(prev => ({
+          ...prev,
+          [orientation]: { x: normalizedX, y: normalizedY }
+        }))
       } else {
-        setCursorPos(null)
+        setHoverCrosshair(prev => ({
+          ...prev,
+          [orientation]: null
+        }))
       }
     }
   }
 
-  const handleMouseUp = (orientation: ViewType) => {
-    setViewStates(prev => ({
-      ...prev,
-      [orientation]: {
-        ...prev[orientation],
-        isDragging: false,
-        dragStart: null
-      }
-    }))
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
+    // Stop panning
+    setIsPanning(prev => ({ ...prev, [orientation]: false }))
+    setPanStart(prev => ({ ...prev, [orientation]: null }))
   }
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
-    e.preventDefault()
+  const handleMouseLeave = (orientation: ViewType) => {
+    // Stop panning when mouse leaves
+    setIsPanning(prev => ({ ...prev, [orientation]: false }))
+    setPanStart(prev => ({ ...prev, [orientation]: null }))
     
-    // Check if Ctrl/Cmd is pressed for zoom
-    if (e.ctrlKey || e.metaKey) {
-      const delta = e.deltaY > 0 ? -0.1 : 0.1
-      handleZoom(orientation, delta)
-    } else {
-      // Navigate slices with mouse wheel
-      const direction = e.deltaY > 0 ? 'next' : 'prev'
-      handleSliceChange(orientation, direction)
+    // Clear hover crosshair when mouse leaves
+    if (placementActive && !previewCoordinate) {
+      setHoverCrosshair(prev => ({
+        ...prev,
+        [orientation]: null
+      }))
     }
+  }
+  
+
+// Replace handleWheel with this simpler version:
+const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
+  // Check if cursor is actually over the image
+  const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+  
+  if (!imgElement) return
+  
+  const imgRect = imgElement.getBoundingClientRect()
+  const mouseX = e.clientX
+  const mouseY = e.clientY
+  
+  // Check if mouse is within image bounds
+  const isOverImage = (
+    mouseX >= imgRect.left &&
+    mouseX <= imgRect.right &&
+    mouseY >= imgRect.top &&
+    mouseY <= imgRect.bottom
+  )
+  
+  if (!isOverImage) {
+    return // Don't process wheel events outside the image
+  }
+  
+  // Check if Ctrl or Cmd is pressed for zoom
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault()
+    e.stopPropagation()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    handleZoom(orientation, delta)
+    return
+  }
+  
+  // Navigate slices in normal mode (no Ctrl)
+  if (!placementActive) {
+    e.preventDefault()
+    e.stopPropagation()
+    const direction = e.deltaY > 0 ? 'next' : 'prev'
+    handleSliceChange(orientation, direction)
+  }
+}
+
+  const handleCancelCoordinate = () => {
+    console.log('❌ Coordinate placement cancelled')
+    setPreviewCoordinate(null)
+    onPlacementComplete()
+    
+    // Reset zoom only if it was auto-zoomed to 2.5x
+    Object.keys(viewStates).forEach((key) => {
+      const orientation = key as ViewType
+      if (viewStates[orientation].scale === 2.5) {
+        handleResetView(orientation)
+      }
+    })
   }
 
   // Keyboard shortcuts
@@ -462,62 +591,72 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!volumeData) return
 
-      // Don't handle shortcuts in placement mode (except ESC)
-      if (placementActive && e.key !== 'Escape') return
-
       switch (e.key) {
         case 'Escape':
-          if (placementActive) {
-            console.log('❌ Placement cancelled')
-            onPlacementComplete()
-            setCursorPos(null)
+          if (placementActive || previewCoordinate) {
+            handleCancelCoordinate()
+          }
+          break
+        case 'Enter':
+          if (previewCoordinate) {
+            handleSaveCoordinate()
           }
           break
         case 'ArrowUp':
-          e.preventDefault()
-          handleSliceChange('axial', 'next')
+          if (!placementActive && !previewCoordinate) {
+            e.preventDefault()
+            handleSliceChange('axial', 'next')
+          }
           break
         case 'ArrowDown':
-          e.preventDefault()
-          handleSliceChange('axial', 'prev')
+          if (!placementActive && !previewCoordinate) {
+            e.preventDefault()
+            handleSliceChange('axial', 'prev')
+          }
           break
         case 'ArrowLeft':
-          e.preventDefault()
-          handleSliceChange('coronal', 'prev')
+          if (!placementActive && !previewCoordinate) {
+            e.preventDefault()
+            handleSliceChange('coronal', 'prev')
+          }
           break
         case 'ArrowRight':
-          e.preventDefault()
-          handleSliceChange('coronal', 'next')
+          if (!placementActive && !previewCoordinate) {
+            e.preventDefault()
+            handleSliceChange('coronal', 'next')
+          }
           break
         case '1':
-          setViewMode('single')
+          if (!placementActive) setViewMode('single')
           break
         case '4':
-          setViewMode('quad')
+          if (!placementActive) setViewMode('quad')
           break
         case '3':
-          setViewMode('3d')
+          if (!placementActive) setViewMode('3d')
           break
         case 'm':
         case 'M':
-          setViewMode('mosaic')
+          if (!placementActive) setViewMode('mosaic')
           break
         case 'c':
         case 'C':
-          setSettings(prev => ({ ...prev, crosshair: !prev.crosshair }))
+          if (!placementActive) setSettings(prev => ({ ...prev, crosshair: !prev.crosshair }))
           break
         case 'r':
         case 'R':
-          handleResetView('axial')
-          handleResetView('coronal')
-          handleResetView('sagittal')
+          if (!placementActive) {
+            handleResetView('axial')
+            handleResetView('coronal')
+            handleResetView('sagittal')
+          }
           break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleSliceChange, volumeData, placementActive, onPlacementComplete])
+  }, [handleSliceChange, volumeData, placementActive, previewCoordinate])
 
   const handleSettingChange = (key: keyof ViewSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -541,38 +680,88 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
     const dataUrl = canvas.toDataURL()
     const viewState = viewStates[orientation]
     const crosshair = crosshairPos[orientation]
+    const hover = hoverCrosshair[orientation]
 
     const actualWidth = slice.actualWidth || slice.width
     const actualHeight = slice.actualHeight || slice.height
 
-    // Determine cursor style and color
-    const cursorStyle = placementActive ? 'crosshair' : (viewState.isDragging ? 'grabbing' : (viewState.scale > 1 ? 'grab' : 'crosshair'))
     const crosshairColor = placementActive && placementMode.color ? placementMode.color : '#7ddb94'
+
+    // Determine cursor based on state
+    let cursorStyle = 'default'
+    if (placementActive && !previewCoordinate) {
+      cursorStyle = 'crosshair'
+    } else if (isPanning[orientation]) {
+      cursorStyle = 'grabbing'
+    } else if (viewState.scale > 1) {
+      cursorStyle = 'grab'
+    }
 
     return (
       <div 
         className="slice-viewer-container"
         onMouseDown={(e) => handleMouseDown(e, orientation)}
         onMouseMove={(e) => handleMouseMove(e, orientation)}
-        onMouseUp={() => handleMouseUp(orientation)}
-        onMouseLeave={() => {
-          handleMouseUp(orientation)
-          if (placementActive) setCursorPos(null)
-        }}
+        onMouseUp={(e) => handleMouseUp(e, orientation)}
+        onMouseLeave={() => handleMouseLeave(orientation)}
         onWheel={(e) => handleWheel(e, orientation)}
         onContextMenu={(e) => e.preventDefault()}
         style={{
           cursor: cursorStyle
         }}
       >
-        {placementActive && (
+        {placementActive && !previewCoordinate && (
           <div className="placement-overlay">
             <div className="placement-message">
-              🎯 Click to place coordinate (ESC to cancel)
+              {placementMode.isEditing 
+                ? '✏️ Edit Mode: Click new position for coordinate' 
+                : 'Move mouse and click to select point'}
+            </div>
+            <button 
+              className="cancel-placement-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCancelCoordinate()
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {previewCoordinate && (
+          <div className="preview-controls-bottom">
+            <div className="preview-info-bar">
+              <span className="preview-label">
+                {placementMode.isEditing ? 'Edit Point:' : 'Preview Point:'}
+              </span>
+              <span className="preview-coord-display">
+                X: {previewCoordinate.x}, Y: {previewCoordinate.y}, Z: {previewCoordinate.z}
+              </span>
+            </div>
+            <div className="preview-actions-bar">
+              <button 
+                className="preview-btn save-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleSaveCoordinate()
+                }}
+              >
+                {placementMode.isEditing ? 'Update' : 'Save'}
+              </button>
+              <button 
+                className="preview-btn cancel-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleCancelCoordinate()
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
-        
+      
         <div className="slice-viewer-wrapper">
           <div 
             className="slice-image-holder"
@@ -594,12 +783,13 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
                   width: `${actualWidth}px`,
                   height: `${actualHeight}px`,
                   imageRendering: 'pixelated',
-                  display: 'block'
+                  display: 'block',
+                  pointerEvents: 'auto'
                 }}
                 draggable={false}
               />
               
-              {/* Show crosshair (normal mode) or placement cursor (placement mode) */}
+              {/* Crosshair */}
               {settings.crosshair && (
                 <div 
                   className="crosshair-overlay"
@@ -612,55 +802,53 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
                     pointerEvents: 'none'
                   }}
                 >
-                  {placementActive && cursorPos ? (
-                    // Placement mode cursor
+                  {/* Show hover crosshair in placement mode BEFORE clicking */}
+                  {placementActive && !previewCoordinate && hover ? (
                     <>
                       <div 
-                        className="crosshair-horizontal placement-cursor" 
+                        className="crosshair-horizontal" 
                         style={{ 
-                          top: `${cursorPos.y * actualHeight}px`,
+                          top: `${hover.y * actualHeight}px`,
                           position: 'absolute',
                           left: 0,
                           right: 0,
-                          height: '2px',
+                          height: '0.5px',
                           backgroundColor: crosshairColor,
-                          boxShadow: `0 0 8px ${crosshairColor}`,
-                          transform: 'translateY(-1px)',
+                          boxShadow: `0 0 3px ${crosshairColor}`,
                           opacity: 0.9
                         }}
                       />
                       <div 
-                        className="crosshair-vertical placement-cursor" 
+                        className="crosshair-vertical" 
                         style={{ 
-                          left: `${cursorPos.x * actualWidth}px`,
+                          left: `${hover.x * actualWidth}px`,
                           position: 'absolute',
                           top: 0,
                           bottom: 0,
-                          width: '2px',
+                          width: '0.5px',
                           backgroundColor: crosshairColor,
-                          boxShadow: `0 0 8px ${crosshairColor}`,
-                          transform: 'translateX(-1px)',
+                          boxShadow: `0 0 3px ${crosshairColor}`,
                           opacity: 0.9
                         }}
                       />
                       <div
                         style={{
                           position: 'absolute',
-                          left: `${cursorPos.x * actualWidth}px`,
-                          top: `${cursorPos.y * actualHeight}px`,
-                          width: '10px',
-                          height: '10px',
+                          left: `${hover.x * actualWidth}px`,
+                          top: `${hover.y * actualHeight}px`,
+                          width: '2px',
+                          height: '2px',
                           backgroundColor: crosshairColor,
                           borderRadius: '50%',
                           transform: 'translate(-50%, -50%)',
-                          boxShadow: `0 0 10px ${crosshairColor}`,
-                          border: '2px solid rgba(255, 255, 255, 0.9)',
-                          animation: 'pulseDot 1.5s ease-in-out infinite'
+                          boxShadow: `0 0 4px ${crosshairColor}`,
+                          border: '0.5px solid rgba(255, 255, 255, 0.9)',
+                          opacity: 0.95
                         }}
                       />
                     </>
                   ) : (
-                    // Normal crosshair
+                    /* Normal crosshair or preview mode */
                     <>
                       <div 
                         className="crosshair-horizontal" 
@@ -669,10 +857,10 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
                           position: 'absolute',
                           left: 0,
                           right: 0,
-                          height: '1px',
-                          backgroundColor: crosshairColor,
-                          boxShadow: `0 0 4px ${crosshairColor}`,
-                          transform: 'translateY(-0.5px)'
+                          height: '0.5px',
+                          backgroundColor: previewCoordinate ? crosshairColor : '#7ddb94',
+                          boxShadow: previewCoordinate ? `0 0 3px ${crosshairColor}` : '0 0 2px #7ddb94',
+                          opacity: 0.8
                         }}
                       />
                       <div 
@@ -682,10 +870,10 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
                           position: 'absolute',
                           top: 0,
                           bottom: 0,
-                          width: '1px',
-                          backgroundColor: crosshairColor,
-                          boxShadow: `0 0 4px ${crosshairColor}`,
-                          transform: 'translateX(-0.5px)'
+                          width: '0.5px',
+                          backgroundColor: previewCoordinate ? crosshairColor : '#7ddb94',
+                          boxShadow: previewCoordinate ? `0 0 3px ${crosshairColor}` : '0 0 2px #7ddb94',
+                          opacity: 0.8
                         }}
                       />
                       <div
@@ -693,13 +881,14 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
                           position: 'absolute',
                           left: `${crosshair.x * actualWidth}px`,
                           top: `${crosshair.y * actualHeight}px`,
-                          width: '5px',
-                          height: '5px',
-                          backgroundColor: crosshairColor,
+                          width: '2px',
+                          height: '2px',
+                          backgroundColor: previewCoordinate ? crosshairColor : '#7ddb94',
                           borderRadius: '50%',
                           transform: 'translate(-50%, -50%)',
-                          boxShadow: `0 0 6px ${crosshairColor}`,
-                          border: '1px solid rgba(255, 255, 255, 0.8)'
+                          boxShadow: previewCoordinate ? `0 0 4px ${crosshairColor}` : '0 0 3px #7ddb94',
+                          border: '0.5px solid rgba(255, 255, 255, 0.9)',
+                          opacity: 0.9
                         }}
                       />
                     </>
@@ -715,7 +904,7 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           <button 
             className="slice-nav-btn"
             onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'prev'); }}
-            disabled={currentSlice === 0}
+            disabled={currentSlice === 0 || placementActive}
           >
             <FiChevronLeft size={14} />
           </button>
@@ -725,13 +914,13 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           <button 
             className="slice-nav-btn"
             onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'next'); }}
-            disabled={currentSlice === slices.length - 1}
+            disabled={currentSlice === slices.length - 1 || placementActive}
           >
             <FiChevronRight size={14} />
           </button>
         </div>
 
-        {/* Zoom Controls */}
+        {/* Zoom Controls - Allow zoom during preview */}
         <div className="zoom-controls">
           <button 
             className="zoom-btn"
@@ -759,13 +948,35 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
 
         {/* Dimension Info */}
         <div className="dimension-info">
-          {actualWidth}×{actualHeight}px
+          {actualWidth}×{actualHeight}
         </div>
 
         {/* Pixel Coordinates Display */}
         <div className="pixel-coords-info">
-          Pixel: ({crosshair.pixelX}, {crosshair.pixelY})
+          ({crosshair.pixelX}, {crosshair.pixelY})
         </div>
+
+        {/* Pan hint when zoomed */}
+        {viewState.scale > 1 && !placementActive && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 0, 0, 0.7)',
+            color: '#7ddb94',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontSize: '0.75rem',
+            pointerEvents: 'none',
+            opacity: isPanning[orientation] ? 0.9 : 0,
+            transition: 'opacity 0.2s ease',
+            zIndex: 5,
+            whiteSpace: 'nowrap'
+          }}>
+            🖐️ Right-click and drag to pan
+          </div>
+        )}
       </div>
     )
   }
@@ -960,7 +1171,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
 
         {viewMode === 'quad' && (
           <div className="quad-view-columns">
-            {/* Column 1: Axial */}
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -971,7 +1181,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
               </div>
             </div>
             
-            {/* Column 2: Coronal */}
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -982,7 +1191,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
               </div>
             </div>
             
-            {/* Column 3: Sagittal */}
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -993,7 +1201,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
               </div>
             </div>
             
-            {/* Column 4: 3D View */}
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -1025,9 +1232,11 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
 
       {/* Shortcuts info */}
       <div className="shortcuts-info">
-        {placementActive 
-          ? '🎯 Placement Mode: Click to place | ESC to cancel'
-          : 'Left Click: Crosshair | Right Click: Pan | Wheel: Slices | Ctrl+Wheel: Zoom | R: Reset | 1,4,3,M: Views'
+        {placementActive && previewCoordinate
+          ? `✏️ ${placementMode.isEditing ? 'Edit' : 'Preview'} Mode: Zoom with Ctrl+Wheel or buttons | Enter=${placementMode.isEditing ? 'Update' : 'Save'} | ESC=Cancel`
+          : placementActive 
+          ? `🎯 ${placementMode.isEditing ? 'Edit' : 'Placement'} Mode: Move mouse to position | Click to select | ESC=Cancel`
+          : 'Left Click: Set Crosshair | Right-Click+Drag: Pan | Wheel: Navigate | Ctrl+Wheel: Zoom | Arrow Keys: Navigate'
         }
       </div>
     </div>
