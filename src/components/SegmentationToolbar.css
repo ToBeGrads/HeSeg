@@ -3,7 +3,6 @@
   position: fixed;
   bottom: 2rem;
   left: 50%;
-  transform: translateX(-50%);
   border: 2px solid;
   border-radius: 16px;
   z-index: 1000;
@@ -13,6 +12,13 @@
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
+  transition: transform 0.05s ease-out;
+  user-select: none;
+}
+
+.segmentation-toolbar.dragging {
+  cursor: grabbing;
+  transition: none;
 }
 
 @keyframes slideUp {
@@ -30,6 +36,14 @@
   padding: 0.2rem 1rem;
   border-radius: 14px 14px 0 0;
   text-align: left;
+  display: flex;
+  align-items: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.segmentation-toolbar-header:active {
+  cursor: grabbing;
 }
 
 .segmentation-toolbar-title {
@@ -181,6 +195,14 @@
   background-color: rgba(255, 255, 255, 0.25);
 }
 
+.segmentation-action-btn.prev-btn {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.segmentation-action-btn.prev-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
 .segmentation-action-btn.complete-btn {
   color: rgb(20, 20, 20);
   font-weight: bold;
@@ -224,4 +246,26 @@
     width: 100%;
     justify-content: space-between;
   }
+}
+/* Add to existing CSS */
+.segmentation-toolbar-header {
+  padding: 0.2rem 1rem;
+  border-radius: 14px 14px 0 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Changed from default */
+  cursor: grab;
+  user-select: none;
+}
+
+.segmentation-slice-counter {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }

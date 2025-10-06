@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight, FiSettings, FiLayers, FiZoomIn, FiZoomOut, FiRotateCw, FiEye, FiMaximize2, FiMove } from 'react-icons/fi'
+import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight, FiSettings, FiLayers, FiZoomIn, FiZoomOut, FiRotateCw, FiEye, FiMaximize2, FiMove, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import './AdvancedMRIViewer.css'
 import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
 import { Niivue } from '@niivue/niivue'
@@ -366,6 +366,18 @@ function AdvancedMRIViewer({
     }))
   }
 
+  const handlePanDirection = (orientation: ViewType, direction: 'up' | 'down' | 'left' | 'right') => {
+    const panAmount = 50 // pixels to pan
+    setViewStates(prev => ({
+      ...prev,
+      [orientation]: {
+        ...prev[orientation],
+        offsetX: prev[orientation].offsetX + (direction === 'left' ? panAmount : direction === 'right' ? -panAmount : 0),
+        offsetY: prev[orientation].offsetY + (direction === 'up' ? panAmount : direction === 'down' ? -panAmount : 0)
+      }
+    }))
+  }
+
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
     const target = e.target as HTMLElement
     if (target.closest('.slice-controls') || 
@@ -373,10 +385,11 @@ function AdvancedMRIViewer({
         target.closest('.dimension-info') || 
         target.closest('.pixel-coords-info') ||
         target.closest('.placement-overlay') ||
-        target.closest('.preview-controls-bottom')) {
+        target.closest('.preview-controls-bottom') ||
+        target.closest('.pan-control')) {
       return
     }
-
+  
     // Mask editing mode
     if (activeStructureId && !placementActive) {
       console.log('🖱️ Mouse down for mask editing')
@@ -396,6 +409,16 @@ function AdvancedMRIViewer({
         const pixelY = Math.floor((y / imgRect.height) * slice.height)
         
         console.log('🎯 Start drawing at:', { pixelX, pixelY, orientation, currentSlice })
+        
+        // Save initial state BEFORE first draw
+        maskManager.setCurrentSlice(activeStructureId, currentSlice)
+        
+        // Check if this is the first time editing this slice
+        if (!maskManager.canUndo(activeStructureId, currentSlice)) {
+          console.log('💾 Saving initial empty state')
+          maskManager.saveHistory(activeStructureId, currentSlice)
+        }
+        
         setIsDrawing(true)
         lastPosRef.current = { x: pixelX, y: pixelY }
         
@@ -406,6 +429,7 @@ function AdvancedMRIViewer({
         return
       }
     }
+    
 
     if (e.button === 0) {
       e.preventDefault()
@@ -663,12 +687,14 @@ function AdvancedMRIViewer({
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
     if (activeStructureId && isDrawing) {
       console.log('✅ Mouse up - saving history')
-      maskManager.saveHistory(activeStructureId)
+      const currentSlice = currentSlices[orientation]
+      maskManager.setCurrentSlice(activeStructureId, currentSlice)
+      maskManager.saveHistory(activeStructureId, currentSlice)
       setIsDrawing(false)
       lastPosRef.current = null
       return
     }
-
+  
     if (isPanning[orientation]) {
       setIsPanning(prev => ({ ...prev, [orientation]: false }))
       setPanStart(prev => ({ ...prev, [orientation]: null }))
@@ -696,6 +722,18 @@ function AdvancedMRIViewer({
   }
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
+    // DISABLE WHEEL NAVIGATION DURING SEGMENTATION
+    if (activeStructureId) {
+      // Only allow zoom with Ctrl
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        const delta = e.deltaY > 0 ? -0.1 : 0.1
+        handleZoom(orientation, delta)
+      }
+      return // Block slice navigation
+    }
+  
     const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
     
     if (!imgElement) return
@@ -726,10 +764,17 @@ function AdvancedMRIViewer({
     if (!placementActive) {
       e.preventDefault()
       e.stopPropagation()
-      const direction = e.deltaY > 0 ? 'next' : 'prev'
-      handleSliceChange(orientation, direction)
+      const delta = e.deltaY > 0 ? 1 : -1
+      const slices = allSlices[orientation]
+      const current = currentSlices[orientation]
+      const newSlice = current + delta
+      
+      if (newSlice >= 0 && newSlice < slices.length) {
+        handleSliceChange(orientation, delta > 0 ? 'next' : 'prev')
+      }
     }
   }
+   
 
   const handleCancelCoordinate = () => {
     console.log('❌ Coordinate placement cancelled')
@@ -774,23 +819,31 @@ function AdvancedMRIViewer({
   const handleUndo = () => {
     if (activeStructureId) {
       console.log('↩️ Undo')
-      maskManager.undo(activeStructureId)
+      const currentSlice = currentSlices.axial // or track which view is active
+      maskManager.setCurrentSlice(activeStructureId, currentSlice)
+      maskManager.undo(activeStructureId, currentSlice)
     }
   }
 
   const handleRedo = () => {
     if (activeStructureId) {
       console.log('↪️ Redo')
-      maskManager.redo(activeStructureId)
+      const currentSlice = currentSlices.axial
+      maskManager.setCurrentSlice(activeStructureId, currentSlice)
+      maskManager.redo(activeStructureId, currentSlice)
     }
   }
 
   const canUndo = () => {
-    return activeStructureId ? maskManager.canUndo(activeStructureId) : false
+    if (!activeStructureId) return false
+    const currentSlice = currentSlices.axial
+    return maskManager.canUndo(activeStructureId, currentSlice)
   }
-
+  
   const canRedo = () => {
-    return activeStructureId ? maskManager.canRedo(activeStructureId) : false
+    if (!activeStructureId) return false
+    const currentSlice = currentSlices.axial
+    return maskManager.canRedo(activeStructureId, currentSlice)
   }
 
   const handleStopEditing = useCallback(() => {
@@ -1004,16 +1057,82 @@ function AdvancedMRIViewer({
           </div>
         )}
       
-        <div className="slice-viewer-wrapper">
-          <div 
-            className="slice-image-holder"
-            style={{
-              transform: `scale(${viewState.scale}) translate(${viewState.offsetX / viewState.scale}px, ${viewState.offsetY / viewState.scale}px)`,
-              transformOrigin: 'center center',
-              position: 'relative',
-              display: 'inline-block'
-            }}
-          >
+      <div className="slice-viewer-wrapper" style={{ overflow: 'hidden' }}>
+  {/* Pan Controls */}
+  {viewState.scale > 1 && (
+  <>
+    <button 
+      className="pan-control pan-left"
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        e.preventDefault();  // ADD THIS
+        handlePanDirection(orientation, 'left'); 
+      }}
+      onMouseDown={(e) => {  // ADD THIS
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      title="Pan Left"
+    >
+      <FiChevronLeft size={20} />
+    </button>
+    <button 
+      className="pan-control pan-right"
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        e.preventDefault();  // ADD THIS
+        handlePanDirection(orientation, 'right'); 
+      }}
+      onMouseDown={(e) => {  // ADD THIS
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      title="Pan Right"
+    >
+      <FiChevronRight size={20} />
+    </button>
+    <button 
+      className="pan-control pan-up"
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        e.preventDefault();  // ADD THIS
+        handlePanDirection(orientation, 'up'); 
+      }}
+      onMouseDown={(e) => {  // ADD THIS
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      title="Pan Up"
+    >
+      <FiChevronUp size={20} />
+    </button>
+    <button 
+      className="pan-control pan-down"
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        e.preventDefault();  // ADD THIS
+        handlePanDirection(orientation, 'down'); 
+      }}
+      onMouseDown={(e) => {  // ADD THIS
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      title="Pan Down"
+    >
+      <FiChevronDown size={20} />
+    </button>
+  </>
+)}
+  
+  <div 
+    className="slice-image-holder"
+    style={{
+      transform: `scale(${viewState.scale}) translate(${viewState.offsetX / viewState.scale}px, ${viewState.offsetY / viewState.scale}px)`,
+      transformOrigin: 'center center',
+      position: 'relative',
+      display: 'inline-block'
+    }}
+  >
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <img 
                 src={dataUrl} 
@@ -1488,21 +1607,24 @@ function AdvancedMRIViewer({
 
       {/* Segmentation Toolbar */}
       {activeStructureId && (
-        <SegmentationToolbar
-          structureColor={structures.find(s => s.id === activeStructureId)?.color || '#7ddb94'}
-          structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
-          brushSize={brushSize}
-          onBrushSizeChange={setBrushSize}
-          tool={tool}
-          onToolChange={setTool}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onComplete={handleStopEditing}
-          onNext={() => handleSliceChange('axial', 'next')}
-          canUndo={canUndo()}
-          canRedo={canRedo()}
-        />
-      )}
+  <SegmentationToolbar
+    structureColor={structures.find(s => s.id === activeStructureId)?.color || '#7ddb94'}
+    structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
+    brushSize={brushSize}
+    onBrushSizeChange={setBrushSize}
+    tool={tool}
+    onToolChange={setTool}
+    onUndo={handleUndo}
+    onRedo={handleRedo}
+    onComplete={handleStopEditing}
+    onNext={() => handleSliceChange('axial', 'next')}
+    onPrevious={() => handleSliceChange('axial', 'prev')}
+    canUndo={canUndo()}
+    canRedo={canRedo()}
+    currentSlice={currentSlices.axial}
+    totalSlices={allSlices.axial.length}
+  />
+)}
     </div>
   )
 }
