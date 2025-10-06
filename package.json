@@ -13,7 +13,6 @@
     "@lineiconshq/free-icons": "^1.0.3",
     "@lineiconshq/react-lineicons": "^1.0.5",
     "@niivue/niivue": "^0.62.1",
-    "@types/node": "^24.6.2",
     "cornerstone-core": "^2.6.1",
     "cornerstone-wado-image-loader": "^4.13.2",
     "cornerstone-web-image-loader": "^2.1.1",
@@ -30,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/cornerstone-core": "^2.3.3",
+    "@types/node": "^24.7.0",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.3",

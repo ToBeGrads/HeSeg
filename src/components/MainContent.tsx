@@ -11,11 +11,30 @@ interface PlacementMode {
 }
 
 interface MainContentProps {
-  placementMode: PlacementMode
+  placementMode: {
+    active: boolean
+    structureId?: number | null
+    color?: string | null
+    isEditing?: boolean
+    currentCoordinate?: { x: number; y: number; z: number }
+  }
   onPlacementComplete: () => void
+  structures?: any[]
+  maskVisibility?: Record<number, boolean>
+  activeStructureId?: number | null
+  onVolumeDataLoaded?: (data: VolumeData | null) => void
+  onStopEditing?: () => void // ADD THIS
 }
 
-function MainContent({ placementMode, onPlacementComplete }: MainContentProps) {
+function MainContent({ 
+  placementMode, 
+  onPlacementComplete,
+  structures = [],
+  maskVisibility = {},
+  activeStructureId = null,
+  onVolumeDataLoaded,
+  onStopEditing // ADD THIS
+}: MainContentProps) {
   const [isEndBarVisible, setIsEndBarVisible] = useState(true)
   const [volumeData, setVolumeData] = useState<VolumeData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -107,15 +126,17 @@ function MainContent({ placementMode, onPlacementComplete }: MainContentProps) {
             </button>
           </div>
         ) : (
-          <AdvancedMRIViewer 
+          <AdvancedMRIViewer
             volumeData={volumeData}
             placementMode={placementMode}
             onPlacementComplete={onPlacementComplete}
+            structures={structures}
+            maskVisibility={maskVisibility}
+            activeStructureId={activeStructureId}
+            onStopEditing={onStopEditing} // ADD THIS
           />
         )}
       </div>
-      
-      
     </main>
   )
 }

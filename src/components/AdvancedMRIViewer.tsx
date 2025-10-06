@@ -3,6 +3,9 @@ import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight, FiSettings, FiLayers, 
 import './AdvancedMRIViewer.css'
 import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
 import { Niivue } from '@niivue/niivue'
+import SegmentationToolbar from './SegmentationToolbar'
+import { MaskOverlay } from './MaskOverlay'
+import { maskManager } from '../utils/MaskManager'
 
 type ViewType = 'axial' | 'coronal' | 'sagittal'
 type ViewMode = 'single' | 'quad' | '3d' | 'mosaic'
@@ -11,13 +14,21 @@ interface AdvancedMRIViewerProps {
   volumeData: VolumeData | null
   placementMode: {
     active: boolean
-    structureId: number | null
-    color: string | null
-    isEditing: boolean
-    editingCoordinateIndex: number | null
-    currentCoordinate: { x: number, y: number, z: number } | null
+    color?: string
+    isEditing?: boolean
+    structureId?: number
+    currentCoordinate?: { x: number; y: number; z: number }
   }
   onPlacementComplete: () => void
+  maskVisibility?: Record<number, boolean>
+  activeStructureId?: number | null
+  structures?: Array<{
+    id: number
+    title: string
+    color: string
+    coordinates: Array<{ x: number; y: number; z: number }>
+  }>
+  onStopEditing?: () => void
 }
 
 interface ViewSettings {
@@ -46,7 +57,15 @@ interface VoxelCoordinates {
   z: number
 }
 
-function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: AdvancedMRIViewerProps) {
+function AdvancedMRIViewer({ 
+  volumeData, 
+  placementMode, 
+  onPlacementComplete,
+  maskVisibility: maskVisibilityProp = {},
+  activeStructureId: activeStructureIdProp = null,
+  structures = [],
+  onStopEditing
+}: AdvancedMRIViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('quad')
   const [currentSlices, setCurrentSlices] = useState({
     axial: 0,
@@ -77,49 +96,86 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
     coronal: { scale: 1, offsetX: 0, offsetY: 0 },
     sagittal: { scale: 1, offsetX: 0, offsetY: 0 }
   })
-  
+
   const [crosshairPos, setCrosshairPos] = useState<Record<ViewType, CrosshairPosition>>({
     axial: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 },
     coronal: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 },
     sagittal: { x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 }
   })
 
-  const [voxelCoords, setVoxelCoords] = useState<VoxelCoordinates>({ x: 0, y: 0, z: 0 })
-  
-  // Placement mode state
-  const [placementActive, setPlacementActive] = useState(false)
-  
-  // Preview coordinate state
-  const [previewCoordinate, setPreviewCoordinate] = useState<{
-    x: number
-    y: number
-    z: number
-    orientation: ViewType
-  } | null>(null)
-  
-  // Hover crosshair for placement mode (before clicking)
-  const [hoverCrosshair, setHoverCrosshair] = useState<Record<ViewType, { x: number, y: number } | null>>({
-    axial: null,
-    coronal: null,
-    sagittal: null
+  const [voxelCoords, setVoxelCoords] = useState<VoxelCoordinates>({
+    x: 0,
+    y: 0,
+    z: 0
   })
-  
+
   // Panning state
   const [isPanning, setIsPanning] = useState<Record<ViewType, boolean>>({
     axial: false,
     coronal: false,
     sagittal: false
   })
-
+  
   const [panStart, setPanStart] = useState<Record<ViewType, { x: number, y: number } | null>>({
     axial: null,
     coronal: null,
     sagittal: null
   })
+
+  // Placement mode state
+  const [placementActive, setPlacementActive] = useState(false)
+  const [previewCoordinate, setPreviewCoordinate] = useState<{
+    x: number
+    y: number
+    z: number
+    orientation: ViewType
+  } | null>(null)
+
+  const [hoverCrosshair, setHoverCrosshair] = useState<Record<ViewType, { x: number, y: number } | null>>({
+    axial: null,
+    coronal: null,
+    sagittal: null
+  })
+
+  // Mask editing state - simplified
+  const [tool, setTool] = useState<'draw' | 'erase'>('draw')
+  const [brushSize, setBrushSize] = useState<number>(5)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null)
   
+  const [, forceUpdate] = useState({})
+
+  // Use the passed activeStructureId
+  const activeStructureId = activeStructureIdProp
+  const maskVisibility = maskVisibilityProp
+
   const containerRef = useRef<HTMLDivElement>(null)
   const niivueRef = useRef<Niivue | null>(null)
   const canvas3DRef = useRef<HTMLCanvasElement>(null)
+
+  // Activate mask when structure is selected
+  useEffect(() => {
+    if (activeStructureId && volumeData) {
+      console.log('🎨 Activating mask editing for structure:', activeStructureId)
+      // Ensure mask exists
+      if (!maskManager.getMask(activeStructureId)) {
+        maskManager.createMask(activeStructureId, volumeData.dims)
+      }
+      setTool('draw')
+    }
+  }, [activeStructureId, volumeData])
+
+  // Handle mask updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      console.log('🔄 Mask updated, forcing re-render')
+      forceUpdate({})
+    }
+    maskManager.on('maskUpdated', handleUpdate)
+    return () => {
+      maskManager.off('maskUpdated', handleUpdate)
+    }
+  }, [])
 
   // Update placement state when mode changes
   useEffect(() => {
@@ -134,12 +190,11 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
     } else {
       if (placementMode.isEditing && placementMode.currentCoordinate) {
         console.log('✏️ Edit mode activated for coordinate:', placementMode.currentCoordinate)
-        // Set the preview coordinate immediately for editing
         setPreviewCoordinate({
           x: placementMode.currentCoordinate.x,
           y: placementMode.currentCoordinate.y,
           z: placementMode.currentCoordinate.z,
-          orientation: 'axial' // Default, will be updated based on click
+          orientation: 'axial'
         })
       } else {
         console.log('🎯 Placement mode activated with color:', placementMode.color)
@@ -156,7 +211,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             niivueRef.current.updateGLVolume()
             return
           }
-
           const nv = new Niivue({
             logging: false,
             dragAndDropEnabled: true,
@@ -183,7 +237,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       
       initializeNiiVue()
     }
-
     return () => {
       if (niivueRef.current && viewMode !== 'quad' && viewMode !== '3d') {
         niivueRef.current = null
@@ -202,7 +255,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       setLoading(true)
       try {
         console.log('📸 Starting slice extraction...')
-        
         const axialSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'axial')
         const coronalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'coronal')
         const sagittalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'sagittal')
@@ -231,7 +283,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           sagittal: processedSagittal
         })
 
-        // Set initial slice positions to middle
         const midAxial = Math.floor(axialSlices.length / 2)
         const midCoronal = Math.floor(coronalSlices.length / 2)
         const midSagittal = Math.floor(sagittalSlices.length / 2)
@@ -242,7 +293,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           sagittal: midSagittal
         })
 
-        // Initialize voxel coordinates
         if (volumeData.dims) {
           setVoxelCoords({
             x: Math.floor(volumeData.dims[0] / 2),
@@ -276,7 +326,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
         newSlice = current > 0 ? current - 1 : current
       }
 
-      // Update voxel coordinates based on orientation
       if (volumeData) {
         setVoxelCoords(prevCoords => {
           const newCoords = { ...prevCoords }
@@ -318,7 +367,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   }
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
-    // Check if click is on a control element
     const target = e.target as HTMLElement
     if (target.closest('.slice-controls') || 
         target.closest('.zoom-controls') || 
@@ -329,16 +377,43 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       return
     }
 
-    if (e.button === 0) { // Left click
-      e.preventDefault()
-      
-      // Get the image element
+    // Mask editing mode
+    if (activeStructureId && !placementActive) {
+      console.log('🖱️ Mouse down for mask editing')
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
+      
+      const imgRect = imgElement.getBoundingClientRect()
+      const x = e.clientX - imgRect.left
+      const y = e.clientY - imgRect.top
+      
+      if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
+        const slices = allSlices[orientation]
+        const currentSlice = currentSlices[orientation]
+        const slice = slices[currentSlice]
+        
+        const pixelX = Math.floor((x / imgRect.width) * slice.width)
+        const pixelY = Math.floor((y / imgRect.height) * slice.height)
+        
+        console.log('🎯 Start drawing at:', { pixelX, pixelY, orientation, currentSlice })
+        setIsDrawing(true)
+        lastPosRef.current = { x: pixelX, y: pixelY }
+        
+        // Draw immediately
+        drawAtPoint(pixelX, pixelY, orientation, currentSlice)
+        
+        e.preventDefault()
+        return
+      }
+    }
 
+    if (e.button === 0) {
+      e.preventDefault()
+      
+      const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+      if (!imgElement) return
       const imgRect = imgElement.getBoundingClientRect()
       
-      // Check if click is on the image
       const clickX = e.clientX - imgRect.left
       const clickY = e.clientY - imgRect.top
       
@@ -346,34 +421,25 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
         return
       }
       
-      // Convert to normalized coordinates
       const normalizedX = clickX / imgRect.width
       const normalizedY = clickY / imgRect.height
-      
+
       const clampedX = Math.max(0, Math.min(1, normalizedX))
       const clampedY = Math.max(0, Math.min(1, normalizedY))
-      
-      // Calculate pixel coordinates
-      const slice = allSlices[orientation][currentSlices[orientation]]
-      const pixelX = Math.floor(clampedX * slice.actualWidth)
-      const pixelY = Math.floor(clampedY * slice.actualHeight)
-      
-      // Update crosshair position
-      setCrosshairPos(prev => ({
-        ...prev,
-        [orientation]: { 
-          x: clampedX, 
-          y: clampedY,
-          pixelX,
-          pixelY
-        }
-      }))
-      
-      // Check if in placement mode
-      if (placementActive && placementMode.structureId) {
-        // Calculate voxel coordinates
+
+      const slices = allSlices[orientation]
+      const currentSlice = currentSlices[orientation]
+      if (!slices[currentSlice]) return
+
+      const slice = slices[currentSlice]
+      const pixelX = Math.floor(clampedX * slice.width)
+      const pixelY = Math.floor(clampedY * slice.height)
+
+      if (placementActive) {
+        if (!volumeData) return
+
         let voxelX = 0, voxelY = 0, voxelZ = 0
-        
+
         switch (orientation) {
           case 'axial':
             voxelX = pixelX
@@ -382,19 +448,18 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             break
           case 'coronal':
             voxelX = pixelX
-            voxelZ = volumeData!.dims[2] - 1 - pixelY
+            voxelZ = volumeData.dims[2] - 1 - pixelY
             voxelY = currentSlices.coronal
             break
           case 'sagittal':
             voxelY = pixelX
-            voxelZ = volumeData!.dims[2] - 1 - pixelY
+            voxelZ = volumeData.dims[2] - 1 - pixelY
             voxelX = currentSlices.sagittal
             break
         }
 
         console.log(`📍 Preview coordinate at: (${voxelX}, ${voxelY}, ${voxelZ})`)
         
-        // Set preview coordinate
         setPreviewCoordinate({
           x: voxelX,
           y: voxelY,
@@ -402,7 +467,6 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           orientation
         })
 
-        // Only zoom if current zoom is less than 2.5x
         const currentScale = viewStates[orientation].scale
         if (currentScale < 2.5) {
           const targetZoom = 2.5
@@ -415,17 +479,20 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
             }
           }))
         }
-        
-        // Clear hover crosshair
+
+        setCrosshairPos(prev => ({
+          ...prev,
+          [orientation]: { x: clampedX, y: clampedY, pixelX, pixelY }
+        }))
+
         setHoverCrosshair(prev => ({
           ...prev,
           [orientation]: null
         }))
-        
+
         return
       }
 
-      // Normal mode - update voxel coordinates
       if (volumeData) {
         setVoxelCoords(prevCoords => {
           const newCoords = { ...prevCoords }
@@ -449,24 +516,109 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
           return newCoords
         })
       }
-    } else if (e.button === 2) { // Right click - start panning (only when zoomed)
+
+      setCrosshairPos(prev => ({
+        ...prev,
+        [orientation]: { x: clampedX, y: clampedY, pixelX, pixelY }
+      }))
+    }
+
+    if (e.button === 2 && viewStates[orientation].scale > 1) {
       e.preventDefault()
-      const viewState = viewStates[orientation]
-      
-      // Only allow panning when zoomed in
-      if (viewState.scale > 1) {
-        setIsPanning(prev => ({ ...prev, [orientation]: true }))
-        setPanStart(prev => ({ ...prev, [orientation]: { x: e.clientX, y: e.clientY } }))
-      }
+      setIsPanning(prev => ({ ...prev, [orientation]: true }))
+      setPanStart(prev => ({ ...prev, [orientation]: { x: e.clientX, y: e.clientY } }))
     }
   }
 
+  const drawAtPoint = (pixelX: number, pixelY: number, orientation: ViewType, currentSlice: number) => {
+    if (!activeStructureId || !volumeData) return
+  
+    const value = tool === 'draw' ? 255 : 0
+    
+    let voxelX = 0, voxelY = 0, voxelZ = 0
+  
+    switch (orientation) {
+      case 'axial':
+        // Axial: XY plane, varying Z
+        voxelX = pixelX
+        voxelY = pixelY
+        voxelZ = currentSlice
+        break
+        
+      case 'coronal':
+        // Coronal: XZ plane, varying Y
+        voxelX = pixelX
+        voxelY = currentSlice
+        voxelZ = volumeData.dims[2] - 1 - pixelY
+        break
+        
+      case 'sagittal':
+        // Sagittal: YZ plane, varying X
+        voxelX = currentSlice
+        voxelY = pixelX
+        voxelZ = volumeData.dims[2] - 1 - pixelY
+        break
+    }
+  
+    console.log('✏️ Drawing ONLY on slice:', { 
+      orientation,
+      currentSlice,
+      voxelX, 
+      voxelY, 
+      voxelZ,
+      pixelX,
+      pixelY,
+      value, 
+      brushSize 
+    })
+    
+    // This should only affect voxels on the current slice
+    maskManager.updateMaskVoxel(activeStructureId, voxelX, voxelY, voxelZ, value, brushSize)
+  }
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
-    // Handle panning when right mouse button is held
+    // Mask editing
+    if (activeStructureId && isDrawing && !placementActive) {
+      const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+      if (!imgElement) return
+      
+      const imgRect = imgElement.getBoundingClientRect()
+      const x = e.clientX - imgRect.left
+      const y = e.clientY - imgRect.top
+      
+      if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
+        const slices = allSlices[orientation]
+        const currentSlice = currentSlices[orientation]
+        const slice = slices[currentSlice]
+        
+        const pixelX = Math.floor((x / imgRect.width) * slice.width)
+        const pixelY = Math.floor((y / imgRect.height) * slice.height)
+        
+        // Draw with interpolation for smooth lines
+        if (lastPosRef.current) {
+          const dx = pixelX - lastPosRef.current.x
+          const dy = pixelY - lastPosRef.current.y
+          const steps = Math.max(Math.abs(dx), Math.abs(dy), 1)
+
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps
+            const interpX = Math.round(lastPosRef.current.x + dx * t)
+            const interpY = Math.round(lastPosRef.current.y + dy * t)
+            drawAtPoint(interpX, interpY, orientation, currentSlice)
+          }
+        }
+        
+        lastPosRef.current = { x: pixelX, y: pixelY }
+        e.preventDefault()
+        return
+      }
+    }
+
     if (isPanning[orientation] && panStart[orientation]) {
+      e.preventDefault()
       const deltaX = e.clientX - panStart[orientation]!.x
       const deltaY = e.clientY - panStart[orientation]!.y
-      
+
       setViewStates(prev => ({
         ...prev,
         [orientation]: {
@@ -483,12 +635,10 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       
       return
     }
-    
-    // Only show hover crosshair in placement mode BEFORE clicking
+
     if (placementActive && !previewCoordinate) {
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
-
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
@@ -511,17 +661,32 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
   }
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>, orientation: ViewType) => {
-    // Stop panning
-    setIsPanning(prev => ({ ...prev, [orientation]: false }))
-    setPanStart(prev => ({ ...prev, [orientation]: null }))
+    if (activeStructureId && isDrawing) {
+      console.log('✅ Mouse up - saving history')
+      maskManager.saveHistory(activeStructureId)
+      setIsDrawing(false)
+      lastPosRef.current = null
+      return
+    }
+
+    if (isPanning[orientation]) {
+      setIsPanning(prev => ({ ...prev, [orientation]: false }))
+      setPanStart(prev => ({ ...prev, [orientation]: null }))
+    }
   }
 
   const handleMouseLeave = (orientation: ViewType) => {
-    // Stop panning when mouse leaves
-    setIsPanning(prev => ({ ...prev, [orientation]: false }))
-    setPanStart(prev => ({ ...prev, [orientation]: null }))
-    
-    // Clear hover crosshair when mouse leaves
+    if (activeStructureId && isDrawing) {
+      maskManager.saveHistory(activeStructureId)
+      setIsDrawing(false)
+      lastPosRef.current = null
+    }
+
+    if (isPanning[orientation]) {
+      setIsPanning(prev => ({ ...prev, [orientation]: false }))
+      setPanStart(prev => ({ ...prev, [orientation]: null }))
+    }
+
     if (placementActive && !previewCoordinate) {
       setHoverCrosshair(prev => ({
         ...prev,
@@ -529,55 +694,48 @@ function AdvancedMRIViewer({ volumeData, placementMode, onPlacementComplete }: A
       }))
     }
   }
-  
 
-// Replace handleWheel with this simpler version:
-const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
-  // Check if cursor is actually over the image
-  const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
-  
-  if (!imgElement) return
-  
-  const imgRect = imgElement.getBoundingClientRect()
-  const mouseX = e.clientX
-  const mouseY = e.clientY
-  
-  // Check if mouse is within image bounds
-  const isOverImage = (
-    mouseX >= imgRect.left &&
-    mouseX <= imgRect.right &&
-    mouseY >= imgRect.top &&
-    mouseY <= imgRect.bottom
-  )
-  
-  if (!isOverImage) {
-    return // Don't process wheel events outside the image
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType) => {
+    const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+    
+    if (!imgElement) return
+    
+    const imgRect = imgElement.getBoundingClientRect()
+    const mouseX = e.clientX
+    const mouseY = e.clientY
+    
+    const isOverImage = (
+      mouseX >= imgRect.left &&
+      mouseX <= imgRect.right &&
+      mouseY >= imgRect.top &&
+      mouseY <= imgRect.bottom
+    )
+    
+    if (!isOverImage) {
+      return
+    }
+    
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      const delta = e.deltaY > 0 ? -0.1 : 0.1
+      handleZoom(orientation, delta)
+      return
+    }
+    
+    if (!placementActive) {
+      e.preventDefault()
+      e.stopPropagation()
+      const direction = e.deltaY > 0 ? 'next' : 'prev'
+      handleSliceChange(orientation, direction)
+    }
   }
-  
-  // Check if Ctrl or Cmd is pressed for zoom
-  if (e.ctrlKey || e.metaKey) {
-    e.preventDefault()
-    e.stopPropagation()
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    handleZoom(orientation, delta)
-    return
-  }
-  
-  // Navigate slices in normal mode (no Ctrl)
-  if (!placementActive) {
-    e.preventDefault()
-    e.stopPropagation()
-    const direction = e.deltaY > 0 ? 'next' : 'prev'
-    handleSliceChange(orientation, direction)
-  }
-}
 
   const handleCancelCoordinate = () => {
     console.log('❌ Coordinate placement cancelled')
     setPreviewCoordinate(null)
     onPlacementComplete()
     
-    // Reset zoom only if it was auto-zoomed to 2.5x
     Object.keys(viewStates).forEach((key) => {
       const orientation = key as ViewType
       if (viewStates[orientation].scale === 2.5) {
@@ -586,10 +744,95 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
     })
   }
 
-  // Keyboard shortcuts
+  const handleSaveCoordinate = () => {
+    if (!previewCoordinate) return
+
+    console.log('💾 Saving coordinate:', previewCoordinate)
+
+    if (placementMode.structureId && typeof window !== 'undefined') {
+      const addCoordinateFunc = (window as any).addCoordinateToStructure
+      if (typeof addCoordinateFunc === 'function') {
+        addCoordinateFunc(placementMode.structureId, {
+          x: previewCoordinate.x,
+          y: previewCoordinate.y,
+          z: previewCoordinate.z
+        })
+      }
+    }
+
+    setPreviewCoordinate(null)
+    onPlacementComplete()
+
+    Object.keys(viewStates).forEach((key) => {
+      const orientation = key as ViewType
+      if (viewStates[orientation].scale === 2.5) {
+        handleResetView(orientation)
+      }
+    })
+  }
+
+  const handleUndo = () => {
+    if (activeStructureId) {
+      console.log('↩️ Undo')
+      maskManager.undo(activeStructureId)
+    }
+  }
+
+  const handleRedo = () => {
+    if (activeStructureId) {
+      console.log('↪️ Redo')
+      maskManager.redo(activeStructureId)
+    }
+  }
+
+  const canUndo = () => {
+    return activeStructureId ? maskManager.canUndo(activeStructureId) : false
+  }
+
+  const canRedo = () => {
+    return activeStructureId ? maskManager.canRedo(activeStructureId) : false
+  }
+
+  const handleStopEditing = useCallback(() => {
+    console.log('✅ Stop editing')
+    onStopEditing?.()
+  }, [onStopEditing])
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!volumeData) return
+
+      // Mask editing shortcuts
+      if (activeStructureId) {
+        if (e.ctrlKey || e.metaKey) {
+          switch (e.key.toLowerCase()) {
+            case 'z':
+              e.preventDefault()
+              handleUndo()
+              break
+            case 'y':
+              e.preventDefault()
+              handleRedo()
+              break
+          }
+        } else {
+          switch (e.key.toLowerCase()) {
+            case 'd':
+              setTool('draw')
+              break
+            case 'e':
+              setTool('erase')
+              break
+            case 'enter':
+              handleStopEditing()
+              break
+            case 'escape':
+              handleStopEditing()
+              break
+          }
+        }
+        return
+      }
 
       switch (e.key) {
         case 'Escape':
@@ -656,7 +899,7 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleSliceChange, volumeData, placementActive, previewCoordinate])
+  }, [handleSliceChange, volumeData, placementActive, previewCoordinate, activeStructureId, handleStopEditing])
 
   const handleSettingChange = (key: keyof ViewSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -665,7 +908,7 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
   const renderSliceView = (orientation: ViewType) => {
     const slices = allSlices[orientation]
     const currentSlice = currentSlices[orientation]
-    
+
     if (slices.length === 0 || !slices[currentSlice]?.canvas) {
       return (
         <div className="slice-placeholder">
@@ -681,15 +924,14 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
     const viewState = viewStates[orientation]
     const crosshair = crosshairPos[orientation]
     const hover = hoverCrosshair[orientation]
-
     const actualWidth = slice.actualWidth || slice.width
     const actualHeight = slice.actualHeight || slice.height
-
     const crosshairColor = placementActive && placementMode.color ? placementMode.color : '#7ddb94'
 
-    // Determine cursor based on state
     let cursorStyle = 'default'
-    if (placementActive && !previewCoordinate) {
+    if (activeStructureId && !placementActive) {
+      cursorStyle = 'crosshair'
+    } else if (placementActive && !previewCoordinate) {
       cursorStyle = 'crosshair'
     } else if (isPanning[orientation]) {
       cursorStyle = 'grabbing'
@@ -788,44 +1030,56 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
                 }}
                 draggable={false}
               />
-              
-              {/* Crosshair */}
+
+              {/* Mask Overlays */}
+              {Object.entries(maskVisibility).map(([structureIdStr, visible]) => {
+                if (!visible) return null
+                
+                const structureId = parseInt(structureIdStr)
+                const maskSlice = maskManager.getMaskSlice(structureId, orientation, currentSlice)
+                if (!maskSlice) return null
+                
+                const structure = structures.find(s => s.id === structureId)
+                const structureColor = structure?.color || '#7ddb94'
+                
+                return (
+                  <MaskOverlay
+                    key={`mask-${structureId}-${orientation}`}
+                    maskData={maskSlice}
+                    width={actualWidth}
+                    height={actualHeight}
+                    color={structureColor}
+                    opacity={0.5}
+                    scale={viewState.scale}
+                    offsetX={viewState.offsetX}
+                    offsetY={viewState.offsetY}
+                  />
+                )
+              })}
+
               {settings.crosshair && (
-                <div 
-                  className="crosshair-overlay"
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: `${actualWidth}px`,
-                    height: `${actualHeight}px`,
-                    pointerEvents: 'none'
-                  }}
-                >
-                  {/* Show hover crosshair in placement mode BEFORE clicking */}
-                  {placementActive && !previewCoordinate && hover ? (
+                <div className="crosshair-overlay">
+                  {hover ? (
                     <>
                       <div 
-                        className="crosshair-horizontal" 
-                        style={{ 
-                          top: `${hover.y * actualHeight}px`,
+                        style={{
                           position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          height: '0.5px',
+                          left: `${hover.x * actualWidth}px`,
+                          top: 0,
+                          bottom: 0,
+                          width: '0.5px',
                           backgroundColor: crosshairColor,
                           boxShadow: `0 0 3px ${crosshairColor}`,
                           opacity: 0.9
                         }}
                       />
                       <div 
-                        className="crosshair-vertical" 
-                        style={{ 
-                          left: `${hover.x * actualWidth}px`,
+                        style={{
                           position: 'absolute',
-                          top: 0,
-                          bottom: 0,
-                          width: '0.5px',
+                          left: 0,
+                          right: 0,
+                          top: `${hover.y * actualHeight}px`,
+                          height: '0.5px',
                           backgroundColor: crosshairColor,
                           boxShadow: `0 0 3px ${crosshairColor}`,
                           opacity: 0.9
@@ -848,11 +1102,10 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
                       />
                     </>
                   ) : (
-                    /* Normal crosshair or preview mode */
                     <>
                       <div 
                         className="crosshair-horizontal" 
-                        style={{ 
+                        style={{
                           top: `${crosshair.y * actualHeight}px`,
                           position: 'absolute',
                           left: 0,
@@ -899,7 +1152,6 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
           </div>
         </div>
         
-        {/* Slice Navigation Controls */}
         <div className="slice-controls">
           <button 
             className="slice-nav-btn"
@@ -920,7 +1172,6 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
           </button>
         </div>
 
-        {/* Zoom Controls - Allow zoom during preview */}
         <div className="zoom-controls">
           <button 
             className="zoom-btn"
@@ -946,17 +1197,14 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
           </button>
         </div>
 
-        {/* Dimension Info */}
         <div className="dimension-info">
           {actualWidth}×{actualHeight}
         </div>
 
-        {/* Pixel Coordinates Display */}
         <div className="pixel-coords-info">
           ({crosshair.pixelX}, {crosshair.pixelY})
         </div>
 
-        {/* Pan hint when zoomed */}
         {viewState.scale > 1 && !placementActive && (
           <div style={{
             position: 'absolute',
@@ -1063,7 +1311,6 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
 
   return (
     <div className="advanced-mri-viewer">
-      {/* Compact Topbar */}
       <div className="viewer-topbar">
         <div className="topbar-left">
           <span className="viewer-title">MRI Viewer</span>
@@ -1123,7 +1370,6 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
         </div>
       </div>
 
-      {/* Settings Panel */}
       {showSettings && (
         <div className="settings-panel">
           <div className="settings-row">
@@ -1161,7 +1407,6 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
         </div>
       )}
 
-      {/* Viewer Content */}
       <div className="viewer-content" ref={containerRef}>
         {viewMode === 'single' && (
           <div className="single-view">
@@ -1190,7 +1435,7 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
                 {renderSliceView('coronal')}
               </div>
             </div>
-            
+
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -1220,7 +1465,7 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
 
         {viewMode === '3d' && (
           <div className="threed-view">
-            <canvas 
+            <canvas
               ref={canvas3DRef}
               className="niivue-canvas"
             />
@@ -1230,15 +1475,34 @@ const handleWheel = (e: React.WheelEvent<HTMLDivElement>, orientation: ViewType)
         {viewMode === 'mosaic' && renderMosaicView()}
       </div>
 
-      {/* Shortcuts info */}
       <div className="shortcuts-info">
         {placementActive && previewCoordinate
           ? `✏️ ${placementMode.isEditing ? 'Edit' : 'Preview'} Mode: Zoom with Ctrl+Wheel or buttons | Enter=${placementMode.isEditing ? 'Update' : 'Save'} | ESC=Cancel`
           : placementActive 
           ? `🎯 ${placementMode.isEditing ? 'Edit' : 'Placement'} Mode: Move mouse to position | Click to select | ESC=Cancel`
+          : activeStructureId
+          ? '✏️ Mask Editing: D=Draw | E=Erase | Ctrl+Z=Undo | Ctrl+Y=Redo | Enter/ESC=Complete'
           : 'Left Click: Set Crosshair | Right-Click+Drag: Pan | Wheel: Navigate | Ctrl+Wheel: Zoom | Arrow Keys: Navigate'
         }
       </div>
+
+      {/* Segmentation Toolbar */}
+      {activeStructureId && (
+        <SegmentationToolbar
+          structureColor={structures.find(s => s.id === activeStructureId)?.color || '#7ddb94'}
+          structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
+          brushSize={brushSize}
+          onBrushSizeChange={setBrushSize}
+          tool={tool}
+          onToolChange={setTool}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onComplete={handleStopEditing}
+          onNext={() => handleSliceChange('axial', 'next')}
+          canUndo={canUndo()}
+          canRedo={canRedo()}
+        />
+      )}
     </div>
   )
 }
