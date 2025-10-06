@@ -296,13 +296,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
 }
 
 .slice-viewer-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  display: none;
 }
 
 .slice-viewer-wrapper::-webkit-scrollbar-track {
@@ -1292,4 +1291,94 @@
 
 .cancel-placement-btn {
   pointer-events: auto;
+}
+/* Pan Navigation Buttons */
+.pan-control {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.85);
+  border: 2px solid #7ddb94;
+  border-radius: 50%;
+  color: #7ddb94;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: all 0.3s ease;
+  z-index: 20;  /* Increased from 15 to ensure it's above other elements */
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;  /* ADD THIS - ensure button is clickable */
+}
+
+.pan-control:hover {
+  background-color: rgba(125, 219, 148, 0.2);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(125, 219, 148, 0.4);
+}
+
+.pan-control:active {
+  transform: scale(0.95);
+}
+
+.pan-left {
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pan-left:hover {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.pan-right {
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pan-right:hover {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.pan-up {
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pan-up:hover {
+  transform: translateX(-50%) scale(1.1);
+}
+
+.pan-down {
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pan-down:hover {
+  transform: translateX(-50%) scale(1.1);
+}
+
+/* Adjust for mobile */
+@media (max-width: 768px) {
+  .pan-control {
+    padding: 0.4rem;
+  }
+  
+  .pan-left {
+    left: 0.5rem;
+  }
+  
+  .pan-right {
+    right: 0.5rem;
+  }
+  
+  .pan-up {
+    top: 0.5rem;
+  }
+  
+  .pan-down {
+    bottom: 3rem;
+  }
 }

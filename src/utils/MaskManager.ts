@@ -14,6 +14,13 @@ export interface Mask {
     timestamp: number
   }
   
+  interface SliceHistory {
+    [sliceIndex: number]: {
+      entries: HistoryEntry[]
+      currentIndex: number
+    }
+  }
+  
   // Simple EventEmitter for browser
   class SimpleEventEmitter {
     private events: Map<string, Function[]> = new Map()
@@ -51,8 +58,8 @@ export interface Mask {
   
   export class MaskManager extends SimpleEventEmitter {
     private masks: Map<number, Mask> = new Map()
-    private history: Map<number, HistoryEntry[]> = new Map()
-    private historyIndex: Map<number, number> = new Map()
+    private sliceHistory: Map<number, SliceHistory> = new Map()
+    private currentSlice: Map<number, number> = new Map()
     private maxHistorySize = 50
   
     createMask(structureId: number, dims: [number, number, number]): Mask {
@@ -67,11 +74,8 @@ export interface Mask {
       }
       
       this.masks.set(structureId, mask)
-      this.history.set(structureId, [{ 
-        data: new Uint8Array(totalVoxels), 
-        timestamp: Date.now() 
-      }])
-      this.historyIndex.set(structureId, 0)
+      this.sliceHistory.set(structureId, {})
+      this.currentSlice.set(structureId, 0)
       
       console.log(`✅ Created mask for structure ${structureId}`, mask)
       return mask
@@ -81,73 +85,146 @@ export interface Mask {
       return this.masks.get(structureId)
     }
   
-    saveHistory(structureId: number): void {
+    setCurrentSlice(structureId: number, sliceIndex: number): void {
+      this.currentSlice.set(structureId, sliceIndex)
+    }
+  
+    getCurrentSlice(structureId: number): number {
+      return this.currentSlice.get(structureId) || 0
+    }
+  
+    private getSliceData(structureId: number, sliceIndex: number): Uint8Array {
+      const mask = this.masks.get(structureId)
+      if (!mask) return new Uint8Array()
+  
+      const [dimX, dimY, dimZ] = mask.dims
+      const sliceSize = dimX * dimY
+      const start = sliceIndex * sliceSize
+      const end = start + sliceSize
+      
+      return mask.data.slice(start, end)
+    }
+  
+    private setSliceData(structureId: number, sliceIndex: number, sliceData: Uint8Array): void {
       const mask = this.masks.get(structureId)
       if (!mask) return
   
-      const history = this.history.get(structureId) || []
-      const currentIndex = this.historyIndex.get(structureId) || 0
+      const [dimX, dimY] = mask.dims
+      const sliceSize = dimX * dimY
+      const start = sliceIndex * sliceSize
+      
+      mask.data.set(sliceData, start)
+    }
   
+    saveHistory(structureId: number, sliceIndex?: number): void {
+      const mask = this.masks.get(structureId)
+      if (!mask) return
+  
+      const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
+      const sliceData = this.getSliceData(structureId, currentSliceIndex)
+  
+      let history = this.sliceHistory.get(structureId)
+      if (!history) {
+        history = {}
+        this.sliceHistory.set(structureId, history)
+      }
+  
+      if (!history[currentSliceIndex]) {
+        history[currentSliceIndex] = {
+          entries: [],
+          currentIndex: -1
+        }
+      }
+  
+      const sliceHist = history[currentSliceIndex]
+      
       // Remove any future history if we're not at the end
-      const newHistory = history.slice(0, currentIndex + 1)
+      sliceHist.entries = sliceHist.entries.slice(0, sliceHist.currentIndex + 1)
   
       // Add new state
-      newHistory.push({
-        data: new Uint8Array(mask.data),
+      sliceHist.entries.push({
+        data: new Uint8Array(sliceData),
         timestamp: Date.now()
       })
   
       // Limit history size
-      if (newHistory.length > this.maxHistorySize) {
-        newHistory.shift()
+      if (sliceHist.entries.length > this.maxHistorySize) {
+        sliceHist.entries.shift()
       } else {
-        this.historyIndex.set(structureId, newHistory.length - 1)
+        sliceHist.currentIndex = sliceHist.entries.length - 1
       }
   
-      this.history.set(structureId, newHistory)
+      console.log(`💾 Saved history for structure ${structureId}, slice ${currentSliceIndex}, entries: ${sliceHist.entries.length}`)
     }
   
-    undo(structureId: number): boolean {
+    undo(structureId: number, sliceIndex?: number): boolean {
       const mask = this.masks.get(structureId)
-      const history = this.history.get(structureId)
-      const currentIndex = this.historyIndex.get(structureId)
+      const history = this.sliceHistory.get(structureId)
+      
+      if (!mask || !history) return false
   
-      if (!mask || !history || currentIndex === undefined || currentIndex <= 0) {
+      const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
+      const sliceHist = history[currentSliceIndex]
+  
+      if (!sliceHist || sliceHist.currentIndex <= 0) {
+        console.log(`⚠️ Cannot undo: no history for slice ${currentSliceIndex}`)
         return false
       }
   
-      const newIndex = currentIndex - 1
-      mask.data = new Uint8Array(history[newIndex].data)
-      this.historyIndex.set(structureId, newIndex)
+      const newIndex = sliceHist.currentIndex - 1
+      const restoredData = sliceHist.entries[newIndex].data
+      
+      this.setSliceData(structureId, currentSliceIndex, restoredData)
+      sliceHist.currentIndex = newIndex
+      
+      console.log(`↩️ Undo slice ${currentSliceIndex}, index: ${newIndex}`)
       this.emit('maskUpdated', structureId)
       return true
     }
   
-    redo(structureId: number): boolean {
+    redo(structureId: number, sliceIndex?: number): boolean {
       const mask = this.masks.get(structureId)
-      const history = this.history.get(structureId)
-      const currentIndex = this.historyIndex.get(structureId)
+      const history = this.sliceHistory.get(structureId)
+      
+      if (!mask || !history) return false
   
-      if (!mask || !history || currentIndex === undefined || currentIndex >= history.length - 1) {
+      const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
+      const sliceHist = history[currentSliceIndex]
+  
+      if (!sliceHist || sliceHist.currentIndex >= sliceHist.entries.length - 1) {
+        console.log(`⚠️ Cannot redo: no future history for slice ${currentSliceIndex}`)
         return false
       }
   
-      const newIndex = currentIndex + 1
-      mask.data = new Uint8Array(history[newIndex].data)
-      this.historyIndex.set(structureId, newIndex)
+      const newIndex = sliceHist.currentIndex + 1
+      const restoredData = sliceHist.entries[newIndex].data
+      
+      this.setSliceData(structureId, currentSliceIndex, restoredData)
+      sliceHist.currentIndex = newIndex
+      
+      console.log(`↪️ Redo slice ${currentSliceIndex}, index: ${newIndex}`)
       this.emit('maskUpdated', structureId)
       return true
     }
   
-    canUndo(structureId: number): boolean {
-      const currentIndex = this.historyIndex.get(structureId)
-      return currentIndex !== undefined && currentIndex > 0
+    canUndo(structureId: number, sliceIndex?: number): boolean {
+      const history = this.sliceHistory.get(structureId)
+      if (!history) return false
+  
+      const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
+      const sliceHist = history[currentSliceIndex]
+      
+      return sliceHist !== undefined && sliceHist.currentIndex > 0
     }
   
-    canRedo(structureId: number): boolean {
-      const history = this.history.get(structureId)
-      const currentIndex = this.historyIndex.get(structureId)
-      return history !== undefined && currentIndex !== undefined && currentIndex < history.length - 1
+    canRedo(structureId: number, sliceIndex?: number): boolean {
+      const history = this.sliceHistory.get(structureId)
+      if (!history) return false
+  
+      const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
+      const sliceHist = history[currentSliceIndex]
+      
+      return sliceHist !== undefined && sliceHist.currentIndex < sliceHist.entries.length - 1
     }
   
     updateMaskVoxel(
@@ -165,16 +242,13 @@ export interface Mask {
       const halfSize = Math.floor(brushSize / 2)
   
       // 2D brush only - no depth painting
-      // Only paint in X and Y directions, keep Z fixed (for axial)
-      // The calling code determines which coordinate is the slice coordinate
       for (let dx = -halfSize; dx <= halfSize; dx++) {
         for (let dy = -halfSize; dy <= halfSize; dy++) {
           const nx = x + dx
           const ny = y + dy
-          const nz = z // Keep Z fixed - don't iterate in depth!
+          const nz = z
   
           if (nx >= 0 && nx < dimX && ny >= 0 && ny < dimY && nz >= 0 && nz < dimZ) {
-            // Circular brush in 2D only
             const dist = Math.sqrt(dx * dx + dy * dy)
             if (dist <= halfSize) {
               const index = nx + ny * dimX + nz * dimX * dimY
@@ -254,15 +328,15 @@ export interface Mask {
   
     deleteMask(structureId: number): void {
       this.masks.delete(structureId)
-      this.history.delete(structureId)
-      this.historyIndex.delete(structureId)
+      this.sliceHistory.delete(structureId)
+      this.currentSlice.delete(structureId)
       this.emit('maskDeleted', structureId)
     }
   
     clearAllMasks(): void {
       this.masks.clear()
-      this.history.clear()
-      this.historyIndex.clear()
+      this.sliceHistory.clear()
+      this.currentSlice.clear()
       this.emit('allMasksCleared')
     }
   }
