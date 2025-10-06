@@ -1,4 +1,5 @@
-import { FiEdit3, FiStar, FiGrid } from 'react-icons/fi'
+// src/components/SidebarItem.tsx
+import { FiEdit3, FiStar, FiGrid, FiEye, FiEyeOff, FiEdit2 } from 'react-icons/fi'
 import './SidebarItem.css'
 import { useState } from 'react'
 
@@ -13,9 +14,23 @@ interface SidebarItemProps {
   color: string
   coordinates: Coordinate[]
   onAdd: () => void
+  // ADD THESE NEW PROPS
+  onToggleMask?: () => void
+  onStartEditing?: () => void
+  maskVisible?: boolean
+  isEditing?: boolean
 }
 
-function SidebarItem({ title, color, coordinates, onAdd }: SidebarItemProps) {
+function SidebarItem({ 
+  title, 
+  color, 
+  coordinates, 
+  onAdd,
+  onToggleMask,
+  onStartEditing,
+  maskVisible = false,
+  isEditing = false
+}: SidebarItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const toggleExpanded = () => {
@@ -41,6 +56,36 @@ function SidebarItem({ title, color, coordinates, onAdd }: SidebarItemProps) {
         <span className="sidebar-item-title" onClick={toggleExpanded}>
           {title}
         </span>
+        
+        {/* EYE BUTTON - Toggle Mask Visibility */}
+        <button 
+          className={`sidebar-item-btn ${maskVisible ? 'active-mask' : ''}`}
+          onClick={onToggleMask}
+          title={maskVisible ? 'Hide mask' : 'Show mask'}
+          style={maskVisible ? {
+            backgroundColor: `${color}33`,
+            color: color
+          } : {}}
+        >
+          {maskVisible ? <FiEye /> : <FiEyeOff />}
+        </button>
+
+        {/* PEN BUTTON - Edit Mask */}
+        <button 
+          className={`sidebar-item-btn ${isEditing ? 'active-editing' : ''}`}
+          onClick={onStartEditing}
+          disabled={isEditing}
+          title={isEditing ? 'Editing...' : 'Edit mask'}
+          style={isEditing ? {
+            backgroundColor: `${color}55`,
+            color: color,
+            cursor: 'not-allowed'
+          } : {}}
+        >
+          <FiEdit2 />
+        </button>
+
+        {/* ADD COORDINATE BUTTON */}
         <button className="sidebar-item-btn" onClick={onAdd}>
           +
         </button>

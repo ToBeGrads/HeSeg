@@ -1,8 +1,9 @@
 import './Sidebar.css'
 import SidebarItem from './SidebarItem'
 import AddStructureModal from './AddStructureModal'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { maskManager } from '../utils/MaskManager'
 
 interface Structure {
   id: number
@@ -15,9 +16,25 @@ interface SidebarProps {
   isVisible: boolean
   onToggle: () => void
   onStartPlacement?: (structureId: number, color: string) => void
+  volumeData?: any
+  activeStructureId?: number | null
+  onStartEditing?: (structureId: number) => void
+  maskVisibility?: Record<number, boolean>
+  onToggleMask?: (structureId: number) => void
+  onStructuresChange?: (structures: Structure[]) => void // ADD THIS
 }
 
-function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
+function Sidebar({ 
+  isVisible, 
+  onToggle, 
+  onStartPlacement,
+  volumeData,
+  activeStructureId = null,
+  onStartEditing,
+  maskVisibility = {},
+  onToggleMask,
+  onStructuresChange // ADD THIS
+}: SidebarProps) {
   const [structures, setStructures] = useState<Structure[]>([
     {
       id: 1, 
@@ -43,7 +60,26 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
       coordinates: []
     },
   ])
+
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // CREATE MASKS WHEN VOLUME DATA IS AVAILABLE
+  useEffect(() => {
+    if (volumeData) {
+      structures.forEach(structure => {
+        if (!maskManager.getMask(structure.id)) {
+          maskManager.createMask(structure.id, volumeData.dims)
+        }
+      })
+    }
+  }, [volumeData, structures])
+
+  // NOTIFY PARENT OF STRUCTURE CHANGES
+  useEffect(() => {
+    if (onStructuresChange) {
+      onStructuresChange(structures)
+    }
+  }, [structures, onStructuresChange])
 
   const handleAddStructure = () => {
     setIsModalOpen(true)
@@ -61,6 +97,11 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
       coordinates: []
     }
     setStructures([...structures, newStructure])
+    
+    // Create mask for new structure
+    if (volumeData) {
+      maskManager.createMask(newStructure.id, volumeData.dims)
+    }
   }
 
   const handleAddCoordinate = (structureId: number) => {
@@ -78,10 +119,8 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
           : structure
       )
     )
-    
   }
   
-
   const existingColors = structures.map(structure => structure.color)
 
   // Expose method to add coordinates from parent
@@ -90,14 +129,12 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
   return (
     <>
       <aside className={`sidebar ${isVisible ? 'visible' : 'hidden'}`}>
-        {/* Toggle Button */}
         <div className="sidebar-toggle">
           <button className="sidebar-toggle-btn" onClick={onToggle}>
             {isVisible ? <FiChevronLeft size={18} /> : <FiChevronRight size={18} />}
           </button>
         </div>
 
-        {/* Sidebar Header */}
         <div className='sidebar-header'>
           <h5>Structures</h5>
           <button className="add-st" onClick={handleAddStructure}>
@@ -105,7 +142,6 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
           </button>
         </div>
 
-        {/* Sidebar Content */}
         <div className='sidebar-content'>
           {structures.map(structure => (
             <SidebarItem
@@ -114,6 +150,10 @@ function Sidebar({ isVisible, onToggle, onStartPlacement }: SidebarProps) {
               color={structure.color}
               coordinates={structure.coordinates}
               onAdd={() => handleAddCoordinate(structure.id)}
+              onToggleMask={() => onToggleMask?.(structure.id)}
+              onStartEditing={() => onStartEditing?.(structure.id)}
+              maskVisible={maskVisibility[structure.id] || false}
+              isEditing={activeStructureId === structure.id}
             />
           ))}
         </div>
