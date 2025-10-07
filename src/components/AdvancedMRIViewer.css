@@ -1313,7 +1313,7 @@
 .pan-control:hover {
   background-color: rgba(125, 219, 148, 0.2);
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(125, 219, 148, 0.4);
+  box-shadow: 2px 2px 12px rgba(125, 219, 149, 0.257);
 }
 
 .pan-control:active {
@@ -1328,6 +1328,7 @@
 
 .pan-left:hover {
   transform: translateY(-50%) scale(1.1);
+  border-color: inherit;
 }
 
 .pan-right {
@@ -1338,6 +1339,7 @@
 
 .pan-right:hover {
   transform: translateY(-50%) scale(1.1);
+  border-color: inherit;
 }
 
 .pan-up {
@@ -1348,6 +1350,7 @@
 
 .pan-up:hover {
   transform: translateX(-50%) scale(1.1);
+  border-color: inherit;
 }
 
 .pan-down {
@@ -1358,6 +1361,7 @@
 
 .pan-down:hover {
   transform: translateX(-50%) scale(1.1);
+  border-color: inherit;
 }
 
 /* Adjust for mobile */

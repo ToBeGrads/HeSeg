@@ -1,3 +1,6 @@
+* {
+  outline: none;
+}
 .sidebar-item-container {
   margin-bottom: 0.5rem;
 }
@@ -56,6 +59,8 @@
   transition: all 0.4s ease-in-out;
   outline: none;
   padding: 4px; /* Add padding */
+  outline: none;
+  margin-left: 0.3rem;
 }
 .sidebar-item-btn svg {
   width: 14px !important;
@@ -64,7 +69,11 @@
 }
 
 .sidebar-item-btn:hover {
-  transform: scale(1.1);
+  outline: none;
+
+}
+.sidebar-item-btn::after, .sidebar-item-btn::before, .sidebar-item-btn:active, .sidebar-item-btn:focus {
+  outline: none;
 }
 
 /* Coordinates section */
@@ -162,6 +171,7 @@
 .coord-action-btn:hover {
   color: #ffffff;
   border: none;
+
 }
 
 
@@ -249,8 +259,13 @@
     width: 16px;
     height: 16px;
     font-size: 10px;
+    outline: none;
+    
   }
-
+  .sidebar-item-btn:active{
+    outline: none;
+  }
+  
   .coordinates-list {
     padding: 0.4rem;
     margin-left: 0.25rem;
@@ -291,6 +306,10 @@
 .sidebar-item-btn.active-mask {
   border: 1px solid currentColor;
   animation: pulse-mask 2s ease-in-out infinite;
+  outline: none;
+}
+.sidebar-item-btn.active-mask:active{
+  outline: none;
 }
 
 @keyframes pulse-mask {
