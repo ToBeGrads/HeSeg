@@ -3,12 +3,14 @@ import './App.css'
 import Sidebar from './components/Sidebar'
 import MainContent from './components/MainContent'
 import { maskManager } from './utils/MaskManager'
+import { MRIProvider } from "./Context/MRIcontext"
+
 
 function App() {
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
   const [volumeData, setVolumeData] = useState<any>(null)
   const [structures, setStructures] = useState<any[]>([])
-  
+
   const [placementMode, setPlacementMode] = useState<{
     active: boolean
     structureId: number | null
@@ -69,30 +71,33 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <div className="app-body">
-        <Sidebar 
-          isVisible={isSidebarVisible} 
-          onToggle={handleToggleSidebar}
-          onStartPlacement={handleStartPlacement}
-          volumeData={volumeData}
-          activeStructureId={activeStructureId}
-          onStartEditing={handleStartEditing}
-          maskVisibility={maskVisibility}
-          onToggleMask={handleToggleMask}
-          onStructuresChange={setStructures}
-        />
-        <MainContent
-          placementMode={placementMode}
-          onPlacementComplete={handlePlacementComplete}
-          structures={structures}
-          maskVisibility={maskVisibility}
-          activeStructureId={activeStructureId}
-          onVolumeDataLoaded={setVolumeData}
-          onStopEditing={handleStopEditing}
-        />
+
+    <MRIProvider>
+      <div className="app">
+        <div className="app-body">
+          <Sidebar
+            isVisible={isSidebarVisible}
+            onToggle={handleToggleSidebar}
+            onStartPlacement={handleStartPlacement}
+            volumeData={volumeData}
+            activeStructureId={activeStructureId}
+            onStartEditing={handleStartEditing}
+            maskVisibility={maskVisibility}
+            onToggleMask={handleToggleMask}
+            onStructuresChange={setStructures}
+          />
+          <MainContent
+            placementMode={placementMode}
+            onPlacementComplete={handlePlacementComplete}
+            structures={structures}
+            maskVisibility={maskVisibility}
+            activeStructureId={activeStructureId}
+            onVolumeDataLoaded={setVolumeData}
+            onStopEditing={handleStopEditing}
+          />
+        </div>
       </div>
-    </div>
+    </MRIProvider>
   )
 }
 

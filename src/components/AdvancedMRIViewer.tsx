@@ -6,6 +6,7 @@ import { Niivue } from '@niivue/niivue'
 import SegmentationToolbar from './SegmentationToolbar'
 import { MaskOverlay } from './MaskOverlay'
 import { maskManager } from '../utils/MaskManager'
+import { useMRI } from "../Context/MRIcontext"
 
 type ViewType = 'axial' | 'coronal' | 'sagittal'
 type ViewMode = 'single' | 'quad' | '3d' | 'mosaic'
@@ -67,11 +68,13 @@ function AdvancedMRIViewer({
   onStopEditing
 }: AdvancedMRIViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('quad')
+  const [viewOrientation, setViewOrientation] = useState<ViewType>("axial")
   const [currentSlices, setCurrentSlices] = useState({
     axial: 0,
     coronal: 0,
     sagittal: 0
   })
+const { setSelectedCoordinates } = useMRI();
   const [allSlices, setAllSlices] = useState<{
     axial: any[],
     coronal: any[],
@@ -89,7 +92,7 @@ function AdvancedMRIViewer({
     opacity: 1.0,
     crosshair: true
   })
-  
+
   // Individual view states for each orientation
   const [viewStates, setViewStates] = useState<Record<ViewType, ViewState>>({
     axial: { scale: 1, offsetX: 0, offsetY: 0 },
@@ -212,7 +215,6 @@ function AdvancedMRIViewer({
             return
           }
           const nv = new Niivue({
-            logging: false,
             dragAndDropEnabled: true,
             backColor: [0.1, 0.1, 0.1, 1],
             crosshairColor: [0, 1, 0, 1],
@@ -220,9 +222,9 @@ function AdvancedMRIViewer({
             textHeight: 0.02,
             isRadiologicalConvention: false
           })
-          
+
           await nv.attachToCanvas(canvas3DRef.current!)
-          
+
           if (volumeData.nvImage) {
             await nv.addVolume(volumeData.nvImage)
             nv.setSliceType(nv.sliceTypeRender)
@@ -234,7 +236,7 @@ function AdvancedMRIViewer({
           console.error('❌ Error initializing NiiVue:', error)
         }
       }
-      
+
       initializeNiiVue()
     }
     return () => {
@@ -300,7 +302,7 @@ function AdvancedMRIViewer({
             z: Math.floor(volumeData.dims[2] / 2)
           })
         }
-        
+
         console.log('🎉 All slices extracted and processed successfully')
       } catch (error) {
         console.error('❌ Error extracting slices:', error)
@@ -319,6 +321,9 @@ function AdvancedMRIViewer({
     setCurrentSlices(prev => {
       const current = prev[orientation]
       let newSlice = current
+      // console.log("from Advanced MRi view, line 274, the curretn slice url is :")
+      // console.log(current)
+
 
       if (direction === 'next') {
         newSlice = current < slices.length - 1 ? current + 1 : current
@@ -440,7 +445,7 @@ function AdvancedMRIViewer({
       
       const clickX = e.clientX - imgRect.left
       const clickY = e.clientY - imgRect.top
-      
+
       if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
         return
       }
@@ -516,6 +521,7 @@ function AdvancedMRIViewer({
 
         return
       }
+      console.log("from sethover crosshair advanced mri line 524", voxelCoords)
 
       if (volumeData) {
         setVoxelCoords(prevCoords => {
@@ -651,12 +657,12 @@ function AdvancedMRIViewer({
           offsetY: prev[orientation].offsetY + deltaY
         }
       }))
-      
+
       setPanStart(prev => ({
         ...prev,
         [orientation]: { x: e.clientX, y: e.clientY }
       }))
-      
+
       return
     }
 
@@ -670,7 +676,7 @@ function AdvancedMRIViewer({
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const normalizedX = x / imgRect.width
         const normalizedY = y / imgRect.height
-        
+
         setHoverCrosshair(prev => ({
           ...prev,
           [orientation]: { x: normalizedX, y: normalizedY }
@@ -793,6 +799,8 @@ function AdvancedMRIViewer({
     if (!previewCoordinate) return
 
     console.log('💾 Saving coordinate:', previewCoordinate)
+    // setSelectedCoordinates([previewCoordinate.x,previewCoordinate.y, previewCoordinate.z])
+
 
     if (placementMode.structureId && typeof window !== 'undefined') {
       const addCoordinateFunc = (window as any).addCoordinateToStructure
@@ -961,6 +969,7 @@ function AdvancedMRIViewer({
   const renderSliceView = (orientation: ViewType) => {
     const slices = allSlices[orientation]
     const currentSlice = currentSlices[orientation]
+    // console.log("from advanced mriviewer line 671, the current slice is", currentSlice)
 
     if (slices.length === 0 || !slices[currentSlice]?.canvas) {
       return (
@@ -974,6 +983,11 @@ function AdvancedMRIViewer({
     const slice = slices[currentSlice]
     const canvas = slice.canvas
     const dataUrl = canvas.toDataURL()
+    // console.log("from advanced mriviewer line 685, the current slice url is", dataUrl)
+    // console.log("what is beung stored is", canvas.toDataURL("image/png"))
+    // set the current slice to current in the context
+    const { setCurrentSliceURL } = useMRI();
+    setCurrentSliceURL(canvas.toDataURL("image/png"))
     const viewState = viewStates[orientation]
     const crosshair = crosshairPos[orientation]
     const hover = hoverCrosshair[orientation]
@@ -993,7 +1007,7 @@ function AdvancedMRIViewer({
     }
 
     return (
-      <div 
+      <div
         className="slice-viewer-container"
         onMouseDown={(e) => handleMouseDown(e, orientation)}
         onMouseMove={(e) => handleMouseMove(e, orientation)}
@@ -1008,11 +1022,11 @@ function AdvancedMRIViewer({
         {placementActive && !previewCoordinate && (
           <div className="placement-overlay">
             <div className="placement-message">
-              {placementMode.isEditing 
-                ? '✏️ Edit Mode: Click new position for coordinate' 
+              {placementMode.isEditing
+                ? '✏️ Edit Mode: Click new position for coordinate'
                 : 'Move mouse and click to select point'}
             </div>
-            <button 
+            <button
               className="cancel-placement-btn"
               onClick={(e) => {
                 e.stopPropagation()
@@ -1035,7 +1049,7 @@ function AdvancedMRIViewer({
               </span>
             </div>
             <div className="preview-actions-bar">
-              <button 
+              <button
                 className="preview-btn save-btn"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1044,7 +1058,7 @@ function AdvancedMRIViewer({
               >
                 {placementMode.isEditing ? 'Update' : 'Save'}
               </button>
-              <button 
+              <button
                 className="preview-btn cancel-btn"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1134,8 +1148,8 @@ function AdvancedMRIViewer({
     }}
   >
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <img 
-                src={dataUrl} 
+              <img
+                src={dataUrl}
                 alt={`${orientation} slice ${currentSlice + 1}`}
                 className="slice-image"
                 style={{
@@ -1235,9 +1249,9 @@ function AdvancedMRIViewer({
                           opacity: 0.8
                         }}
                       />
-                      <div 
-                        className="crosshair-vertical" 
-                        style={{ 
+                      <div
+                        className="crosshair-vertical"
+                        style={{
                           left: `${crosshair.x * actualWidth}px`,
                           position: 'absolute',
                           top: 0,
@@ -1270,9 +1284,10 @@ function AdvancedMRIViewer({
             </div>
           </div>
         </div>
-        
+
+        {/* Slice Navigation Controls */}
         <div className="slice-controls">
-          <button 
+          <button
             className="slice-nav-btn"
             onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'prev'); }}
             disabled={currentSlice === 0 || placementActive}
@@ -1282,7 +1297,7 @@ function AdvancedMRIViewer({
           <span className="slice-counter">
             {currentSlice + 1}/{slices.length}
           </span>
-          <button 
+          <button
             className="slice-nav-btn"
             onClick={(e) => { e.stopPropagation(); handleSliceChange(orientation, 'next'); }}
             disabled={currentSlice === slices.length - 1 || placementActive}
@@ -1292,7 +1307,7 @@ function AdvancedMRIViewer({
         </div>
 
         <div className="zoom-controls">
-          <button 
+          <button
             className="zoom-btn"
             onClick={(e) => { e.stopPropagation(); handleZoom(orientation, 0.2); }}
             title="Zoom In"
@@ -1300,14 +1315,14 @@ function AdvancedMRIViewer({
             <FiZoomIn size={14} />
           </button>
           <span className="zoom-level">{Math.round(viewState.scale * 100)}%</span>
-          <button 
+          <button
             className="zoom-btn"
             onClick={(e) => { e.stopPropagation(); handleZoom(orientation, -0.2); }}
             title="Zoom Out"
           >
             <FiZoomOut size={14} />
           </button>
-          <button 
+          <button
             className="zoom-btn"
             onClick={(e) => { e.stopPropagation(); handleResetView(orientation); }}
             title="Reset View"
@@ -1353,7 +1368,7 @@ function AdvancedMRIViewer({
     const itemsPerRow = 6
     const totalItems = Math.min(30, axialSlices.length)
     const startIndex = Math.max(0, currentSlices.axial - Math.floor(totalItems / 2))
-    
+
     return (
       <div className="mosaic-view">
         <div className="mosaic-header">
@@ -1364,19 +1379,19 @@ function AdvancedMRIViewer({
           {Array.from({ length: totalItems }, (_, i) => {
             const sliceIndex = startIndex + i
             if (sliceIndex >= axialSlices.length) return null
-            
+
             const slice = axialSlices[sliceIndex]
             const isActive = sliceIndex === currentSlices.axial
-            
+
             return (
-              <div 
-                key={sliceIndex} 
+              <div
+                key={sliceIndex}
                 className={`mosaic-item ${isActive ? 'active' : ''}`}
                 onClick={() => setCurrentSlices(prev => ({ ...prev, axial: sliceIndex }))}
               >
                 {slice?.canvas && (
-                  <img 
-                    src={slice.canvas.toDataURL()} 
+                  <img
+                    src={slice.canvas.toDataURL()}
                     alt={`Axial slice ${sliceIndex + 1}`}
                     className="mosaic-image"
                   />
@@ -1444,31 +1459,31 @@ function AdvancedMRIViewer({
             </>
           )}
         </div>
-        
+
         <div className="topbar-center">
           <div className="view-controls">
-            <button 
+            <button
               className={`view-btn ${viewMode === 'single' ? 'active' : ''}`}
               onClick={() => setViewMode('single')}
               title="Single view (1)"
             >
               <FiSquare size={14} />
             </button>
-            <button 
+            <button
               className={`view-btn ${viewMode === 'quad' ? 'active' : ''}`}
               onClick={() => setViewMode('quad')}
               title="4-Panel view (4)"
             >
               <FiGrid size={14} />
             </button>
-            <button 
+            <button
               className={`view-btn ${viewMode === '3d' ? 'active' : ''}`}
               onClick={() => setViewMode('3d')}
               title="3D view (3)"
             >
               <FiLayers size={14} />
             </button>
-            <button 
+            <button
               className={`view-btn ${viewMode === 'mosaic' ? 'active' : ''}`}
               onClick={() => setViewMode('mosaic')}
               title="Mosaic view (M)"
@@ -1477,9 +1492,9 @@ function AdvancedMRIViewer({
             </button>
           </div>
         </div>
-        
+
         <div className="topbar-right">
-          <button 
+          <button
             className={`settings-btn ${showSettings ? 'active' : ''}`}
             onClick={() => setShowSettings(!showSettings)}
             title="Settings"
@@ -1493,11 +1508,11 @@ function AdvancedMRIViewer({
         <div className="settings-panel">
           <div className="settings-row">
             <label>Brightness:</label>
-            <input 
-              type="range" 
-              min="0" 
-              max="1" 
-              step="0.1" 
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
               value={settings.brightness}
               onChange={(e) => handleSettingChange('brightness', parseFloat(e.target.value))}
             />
@@ -1505,11 +1520,11 @@ function AdvancedMRIViewer({
           </div>
           <div className="settings-row">
             <label>Contrast:</label>
-            <input 
-              type="range" 
-              min="0" 
-              max="1" 
-              step="0.1" 
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
               value={settings.contrast}
               onChange={(e) => handleSettingChange('contrast', parseFloat(e.target.value))}
             />
@@ -1517,8 +1532,8 @@ function AdvancedMRIViewer({
           </div>
           <div className="settings-row">
             <label>Crosshair (C):</label>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={settings.crosshair}
               onChange={(e) => handleSettingChange('crosshair', e.target.checked)}
             />
@@ -1529,13 +1544,15 @@ function AdvancedMRIViewer({
       <div className="viewer-content" ref={containerRef}>
         {viewMode === 'single' && (
           <div className="single-view">
-            {renderSliceView('axial')}
+            {renderSliceView(viewOrientation)}
           </div>
         )}
 
         {viewMode === 'quad' && (
           <div className="quad-view-columns">
-            <div className="quad-column">
+            <div className="quad-column" onClick={() => {
+            setViewOrientation("axial")
+            }}>
               <div className="quad-panel">
                 <div className="panel-header">
                   <span>Axial View</span>
@@ -1544,8 +1561,8 @@ function AdvancedMRIViewer({
                 {renderSliceView('axial')}
               </div>
             </div>
-            
-            <div className="quad-column">
+
+            <div className="quad-column" onClick={() => { setViewOrientation("coronal") }}>
               <div className="quad-panel">
                 <div className="panel-header">
                   <span>Coronal View</span>
@@ -1555,7 +1572,7 @@ function AdvancedMRIViewer({
               </div>
             </div>
 
-            <div className="quad-column">
+            <div className="quad-column" onClick={() => { setViewOrientation("sagittal") }}>
               <div className="quad-panel">
                 <div className="panel-header">
                   <span>Sagittal View</span>
@@ -1564,7 +1581,7 @@ function AdvancedMRIViewer({
                 {renderSliceView('sagittal')}
               </div>
             </div>
-            
+
             <div className="quad-column">
               <div className="quad-panel">
                 <div className="panel-header">
@@ -1572,7 +1589,7 @@ function AdvancedMRIViewer({
                   <FiMaximize2 size={12} style={{ opacity: 0.6 }} />
                 </div>
                 <div className="threed-container">
-                  <canvas 
+                  <canvas
                     ref={canvas3DRef}
                     className="niivue-canvas"
                   />

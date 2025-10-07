@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { FiGrid, FiSquare, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import './MRIViewer.css'
 import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
+import { useMRI } from "../Context/MRIcontext"
 
 type ViewType = 'axial' | 'coronal' | 'sagittal'
 type ViewMode = 'single' | 'triple'
@@ -163,7 +164,8 @@ function MRIViewer({ volumeData }: MRIViewerProps) {
 
     const canvas = slices[currentSlice].canvas
     const dataUrl = canvas.toDataURL()
-
+    console.log("from mriveiw.tsx, line 167, the curretn slice url is :")
+    console.log(canvas.toDataURL("image/png"))
     return (
       <div className="slice-viewer">
         <img 
