@@ -2,6 +2,8 @@
 import { FiEdit3, FiStar, FiGrid, FiEye, FiEyeOff, FiEdit2 } from 'react-icons/fi'
 import './SidebarItem.css'
 import { useState } from 'react'
+import  Axios  from "../utils/Axios";
+import  { useMRI }  from "../Context/MRIcontext"
 
 interface Coordinate {
   x: number
@@ -31,6 +33,12 @@ function SidebarItem({
   maskVisible = false,
   isEditing = false
 }: SidebarItemProps) {
+  // retreive the image from the context 
+  const {currentSliceURL, setSelectedCoordinates} = useMRI()
+  // set the coordinates
+  setSelectedCoordinates(coordinates)
+  console.log("from side bar item,line 40, here the coordinates",coordinates)
+
   const [isExpanded, setIsExpanded] = useState(false)
 
   const toggleExpanded = () => {
@@ -45,8 +53,33 @@ function SidebarItem({
     console.log(`Edit coordinate ${index} from ${title}`)
   }
 
-  const handleGenerateCoordinate = (index: number) => {
-    console.log(`Generate from coordinate ${index} from ${title}`)
+  const handleGenerateCoordinate = async (index: number) => {
+    try{
+      const response = await Axios.post(
+  "/segment",
+  {
+    coords: coordinates[index],
+    file: currentSliceURL,
+  },
+  {
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
+  }
+);
+
+    if (response.data) {
+      console.log("Request passed"); 
+      console.log(response.data)
+    }else{
+      console.log('failed')
+    }
+    }catch {
+      console.log("ended with abruption")
+    }
+    
+    console.log(` other mssg : Generate from coordinate ${index} from ${title}`)
   }
 
   return (
@@ -120,6 +153,7 @@ function SidebarItem({
                   <button 
                     className="coord-action-btn generate-btn" 
                     onClick={() => handleGenerateCoordinate(index)}
+                    // send request here to backend to fetch the mask
                     title="Generate from coordinate"
                   >
                     <FiStar/>
