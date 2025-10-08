@@ -30,6 +30,7 @@ interface AdvancedMRIViewerProps {
     coordinates: Array<{ x: number; y: number; z: number }>
   }>
   onStopEditing?: () => void
+  jumpToCoord?: { x: number; y: number; z: number } | null
 }
 
 interface ViewSettings {
@@ -65,7 +66,8 @@ function AdvancedMRIViewer({
   maskVisibility: maskVisibilityProp = {},
   activeStructureId: activeStructureIdProp = null,
   structures = [],
-  onStopEditing
+  onStopEditing,
+  jumpToCoord
 }: AdvancedMRIViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('quad')
   const [viewOrientation, setViewOrientation] = useState<ViewType>("axial")
@@ -155,6 +157,78 @@ const { setSelectedCoordinates } = useMRI();
   const containerRef = useRef<HTMLDivElement>(null)
   const niivueRef = useRef<Niivue | null>(null)
   const canvas3DRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    if (jumpToCoord && volumeData) {
+      console.log('🚀 Jumping to coordinate:', jumpToCoord)
+      
+      // Update current slices
+      setCurrentSlices({
+        axial: jumpToCoord.z,
+        coronal: jumpToCoord.y,
+        sagittal: jumpToCoord.x
+      })
+      
+      // Update crosshair position for each view
+      const axialSlice = allSlices.axial[jumpToCoord.z]
+      const coronalSlice = allSlices.coronal[jumpToCoord.y]
+      const sagittalSlice = allSlices.sagittal[jumpToCoord.x]
+      
+      if (axialSlice) {
+        const normalizedX = jumpToCoord.x / volumeData.dims[0]
+        const normalizedY = jumpToCoord.y / volumeData.dims[1]
+        
+        setCrosshairPos(prev => ({
+          ...prev,
+          axial: {
+            x: normalizedX,
+            y: normalizedY,
+            pixelX: jumpToCoord.x,
+            pixelY: jumpToCoord.y
+          }
+        }))
+      }
+      
+      if (coronalSlice) {
+        const normalizedX = jumpToCoord.x / volumeData.dims[0]
+        const normalizedZ = (volumeData.dims[2] - 1 - jumpToCoord.z) / volumeData.dims[2]
+        
+        setCrosshairPos(prev => ({
+          ...prev,
+          coronal: {
+            x: normalizedX,
+            y: normalizedZ,
+            pixelX: jumpToCoord.x,
+            pixelY: volumeData.dims[2] - 1 - jumpToCoord.z
+          }
+        }))
+      }
+      
+      if (sagittalSlice) {
+        const normalizedY = jumpToCoord.y / volumeData.dims[1]
+        const normalizedZ = (volumeData.dims[2] - 1 - jumpToCoord.z) / volumeData.dims[2]
+        
+        setCrosshairPos(prev => ({
+          ...prev,
+          sagittal: {
+            x: normalizedY,
+            y: normalizedZ,
+            pixelX: jumpToCoord.y,
+            pixelY: volumeData.dims[2] - 1 - jumpToCoord.z
+          }
+        }))
+      }
+      
+      // Update voxel coordinates display
+      setVoxelCoords({
+        x: jumpToCoord.x,
+        y: jumpToCoord.y,
+        z: jumpToCoord.z
+      })
+      
+      console.log('✅ Jumped to coordinate successfully')
+    }
+  }, [jumpToCoord, volumeData, allSlices])
 
   // Activate mask when structure is selected
   useEffect(() => {

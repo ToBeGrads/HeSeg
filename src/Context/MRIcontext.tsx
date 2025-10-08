@@ -16,6 +16,8 @@ interface MRIContextType {
   setSelectedCoordinates: React.Dispatch<
     React.SetStateAction<SelectedCoordinate[]>
   >;
+  volumeData: any | null;
+  setVolumeData: (data : any) => void;
 }
 
 const MRIContext = createContext<MRIContextType | undefined>(undefined);
@@ -30,6 +32,7 @@ export const MRIProvider: React.FC<MRIProviderProps> = ({ children }) => {
   const [selectedCoordinates, setSelectedCoordinates] = useState<
     SelectedCoordinate[]
   >([]); // initialize as empty array
+  const [volumeData, setVolumeData] = useState<any | null>(null);
 
   return (
     <MRIContext.Provider
@@ -40,6 +43,8 @@ export const MRIProvider: React.FC<MRIProviderProps> = ({ children }) => {
         setImageData,
         setCurrentSliceURL,
         setSelectedCoordinates,
+        volumeData,
+        setVolumeData
       }}
     >
       {children}

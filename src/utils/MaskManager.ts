@@ -80,7 +80,7 @@ export interface Mask {
       console.log(`✅ Created mask for structure ${structureId}`, mask)
       return mask
     }
-  
+    // if undefined create a mask
     getMask(structureId: number): Mask | undefined {
       return this.masks.get(structureId)
     }
@@ -339,6 +339,27 @@ export interface Mask {
       this.currentSlice.clear()
       this.emit('allMasksCleared')
     }
+    // Add this method after getCurrentSlice (around line 93)
+getMaskVoxelValue(
+  structureId: number,
+  x: number,
+  y: number,
+  z: number
+): number {
+  const mask = this.masks.get(structureId)
+  if (!mask) return 0
+
+  const [dimX, dimY, dimZ] = mask.dims
+  
+  // Check bounds
+  if (x < 0 || x >= dimX || y < 0 || y >= dimY || z < 0 || z >= dimZ) {
+    return 0
   }
+
+  const index = x + y * dimX + z * dimX * dimY
+  return mask.data[index]
+}
+  }
+  
   
   export const maskManager = new MaskManager()
