@@ -1,0 +1,90 @@
+.mask-debug-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  
+  .mask-debug-panel {
+    background: rgb(30, 30, 30);
+    border: 2px solid #7ddb94;
+    border-radius: 12px;
+    padding: 1rem;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .mask-debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #7ddb94;
+  }
+  
+  .mask-debug-header h3 {
+    margin: 0;
+    color: #7ddb94;
+  }
+  
+  .close-debug {
+    background: transparent;
+    border: none;
+    color: #999;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+  
+  .close-debug:hover {
+    color: #7ddb94;
+    background: rgba(125, 219, 148, 0.1);
+  }
+  
+  .mask-debug-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: auto;
+  }
+  
+  .mask-info {
+    background: rgba(125, 219, 148, 0.1);
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(125, 219, 148, 0.3);
+  }
+  
+  .mask-info p {
+    margin: 0.25rem 0;
+    color: aliceblue;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+  }
+  
+  .mask-canvas-container {
+    background: #000;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .mask-debug-canvas {
+    max-width: 100%;
+    max-height: 60vh;
+    image-rendering: pixelated;
+    border: 1px solid #7ddb94;
+  }

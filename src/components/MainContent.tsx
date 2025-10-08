@@ -3,6 +3,7 @@ import './MainContent.css'
 import EndBar from './EndBar'
 import AdvancedMRIViewer from './AdvancedMRIViewer'
 import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
+import { useMRI } from '../Context/MRIcontext'
 
 interface PlacementMode {
   active: boolean
@@ -23,7 +24,8 @@ interface MainContentProps {
   maskVisibility?: Record<number, boolean>
   activeStructureId?: number | null
   onVolumeDataLoaded?: (data: VolumeData | null) => void
-  onStopEditing?: () => void // ADD THIS
+  onStopEditing?: () => void
+  umpToCoord?: { x: number; y: number; z: number } | null
 }
 
 function MainContent({ 
@@ -33,8 +35,10 @@ function MainContent({
   maskVisibility = {},
   activeStructureId = null,
   onVolumeDataLoaded,
-  onStopEditing // ADD THIS
+  onStopEditing,
+  jumpToCoord
 }: MainContentProps) {
+  const { setVolumeData: setContextVolumeData } = useMRI() 
   const [isEndBarVisible, setIsEndBarVisible] = useState(true)
   const [volumeData, setVolumeData] = useState<VolumeData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -73,7 +77,9 @@ function MainContent({
         
         if (volume) {
           setVolumeData(volume)
+          setContextVolumeData(volume)
           console.log('🎉 Volume ready for viewing!')
+          console.log('Volume dimensions:', volume.dims)
         } else {
           const errorMsg = 'No MRI file found. Using demo file or check public folder.'
           console.error('❌', errorMsg)
@@ -133,7 +139,8 @@ function MainContent({
             structures={structures}
             maskVisibility={maskVisibility}
             activeStructureId={activeStructureId}
-            onStopEditing={onStopEditing} // ADD THIS
+            onStopEditing={onStopEditing}
+            jumpToCoord={jumpToCoord}
           />
         )}
       </div>

@@ -4,6 +4,7 @@ import AddStructureModal from './AddStructureModal'
 import { useState, useEffect } from 'react'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { maskManager } from '../utils/MaskManager'
+import { useMRI } from '../Context/MRIcontext' 
 
 interface Structure {
   id: number
@@ -16,25 +17,26 @@ interface SidebarProps {
   isVisible: boolean
   onToggle: () => void
   onStartPlacement?: (structureId: number, color: string) => void
-  volumeData?: any
   activeStructureId?: number | null
   onStartEditing?: (structureId: number) => void
   maskVisibility?: Record<number, boolean>
   onToggleMask?: (structureId: number) => void
   onStructuresChange?: (structures: Structure[]) => void // ADD THIS
+  onJumpToCoordinate?: (coord: { x: number; y: number; z: number }) => void
 }
 
 function Sidebar({ 
   isVisible, 
   onToggle, 
   onStartPlacement,
-  volumeData,
   activeStructureId = null,
   onStartEditing,
   maskVisibility = {},
   onToggleMask,
-  onStructuresChange // ADD THIS
+  onStructuresChange,
+  onJumpToCoordinate
 }: SidebarProps) {
+  const { volumeData } = useMRI()
   const [structures, setStructures] = useState<Structure[]>([
     {
       id: 1, 
@@ -64,15 +66,20 @@ function Sidebar({
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // CREATE MASKS WHEN VOLUME DATA IS AVAILABLE
-  useEffect(() => {
-    if (volumeData) {
-      structures.forEach(structure => {
-        if (!maskManager.getMask(structure.id)) {
-          maskManager.createMask(structure.id, volumeData.dims)
-        }
-      })
-    }
-  }, [volumeData, structures])
+ // Around line 63-77
+ useEffect(() => {
+  if (volumeData && volumeData.dims) {
+    console.log('🎭 Volume data loaded, creating masks for structures')
+    console.log('📊 Volume dimensions:', volumeData.dims)
+    
+    structures.forEach(structure => {
+      if (!maskManager.getMask(structure.id)) {
+        console.log(`📝 Creating mask for structure ${structure.id}: ${structure.title}`)
+        maskManager.createMask(structure.id, volumeData.dims)
+      }
+    })
+  }
+}, [volumeData])
 
   // NOTIFY PARENT OF STRUCTURE CHANGES
   useEffect(() => {
@@ -96,11 +103,15 @@ function Sidebar({
       color,
       coordinates: []
     }
+    
     setStructures([...structures, newStructure])
     
-    // Create mask for new structure
-    if (volumeData) {
+    // Create mask immediately when structure is created
+    if (volumeData && volumeData.dims) {
+      console.log('📝 Creating mask for new structure:', newStructure.id)
       maskManager.createMask(newStructure.id, volumeData.dims)
+    } else {
+      console.warn('⚠️ Volume data not available yet for mask creation')
     }
   }
 
@@ -119,6 +130,22 @@ function Sidebar({
           : structure
       )
     )
+  }
+  const handleCoordinatesChange = (structureId: number, newCoords: Array<{ x: number, y: number, z: number, hasSegmentation?: boolean }>) => {
+    console.log(`🔄 Updating coordinates for structure ${structureId}`, newCoords)
+    setStructures(prevStructures => 
+      prevStructures.map(structure => 
+        structure.id === structureId
+          ? { ...structure, coordinates: newCoords }
+          : structure
+      )
+    )
+  }
+  const handleCoordinateClick = (coord: { x: number; y: number; z: number }) => {
+    console.log('📍 Sidebar: Jumping to coordinate:', coord)
+    if (onJumpToCoordinate) {
+      onJumpToCoordinate(coord)
+    }
   }
   
   const existingColors = structures.map(structure => structure.color)
@@ -152,8 +179,11 @@ function Sidebar({
               onAdd={() => handleAddCoordinate(structure.id)}
               onToggleMask={() => onToggleMask?.(structure.id)}
               onStartEditing={() => onStartEditing?.(structure.id)}
+              onCoordinatesChange={(newCoords) => handleCoordinatesChange(structure.id, newCoords)}
+              onCoordinateClick={handleCoordinateClick}
               maskVisible={maskVisibility[structure.id] || false}
               isEditing={activeStructureId === structure.id}
+              structureId={structure.id}
             />
           ))}
         </div>

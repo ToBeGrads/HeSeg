@@ -6,10 +6,19 @@ import { maskManager } from './utils/MaskManager'
 import { MRIProvider } from "./Context/MRIcontext"
 
 
+
 function App() {
   const [isSidebarVisible, setIsSidebarVisible] = useState(true)
   const [volumeData, setVolumeData] = useState<any>(null)
   const [structures, setStructures] = useState<any[]>([])
+  const [jumpToCoord, setJumpToCoord] = useState<{ x: number; y: number; z: number } | null>(null)
+
+  const handleJumpToCoordinate = (coord: { x: number; y: number; z: number }) => {
+    console.log('🎯 App: Jumping to coordinate:', coord)
+    setJumpToCoord(coord)
+    // Reset after a brief moment so it can be triggered again for the same coord
+    setTimeout(() => setJumpToCoord(null), 100)
+  }
 
   const [placementMode, setPlacementMode] = useState<{
     active: boolean
@@ -85,6 +94,7 @@ function App() {
             maskVisibility={maskVisibility}
             onToggleMask={handleToggleMask}
             onStructuresChange={setStructures}
+            onJumpToCoordinate={handleJumpToCoordinate}
           />
           <MainContent
             placementMode={placementMode}
@@ -94,6 +104,7 @@ function App() {
             activeStructureId={activeStructureId}
             onVolumeDataLoaded={setVolumeData}
             onStopEditing={handleStopEditing}
+            jumpToCoord={jumpToCoord} 
           />
         </div>
       </div>
