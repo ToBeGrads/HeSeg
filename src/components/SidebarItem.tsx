@@ -1,52 +1,62 @@
 // src/components/SidebarItem.tsx
-import { FiEdit3, FiStar, FiGrid, FiEye, FiEyeOff, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import { FiStar, FiGrid, FiEye, FiEyeOff, FiEdit2, FiTrash2 } from 'react-icons/fi'
 import './SidebarItem.css'
 import { useState } from 'react'
 import Axios from "../utils/Axios"
 import { useMRI } from "../Context/MRIcontext"
 import { maskManager } from "../utils/MaskManager"
-
-interface Coordinate {
-  x: number
-  y: number
-  z: number
-  hasSegmentation?: boolean // ADD THIS
-}
+import { useViewerStore } from '../store/useViewerStore'
+import { useStructureStore } from '../store/useStructureStore'
+import { useMaskStore } from '../store/useMaskStore'
 
 interface SidebarItemProps {
-  title: string
-  color: string
-  coordinates: Coordinate[]
-  onAdd: () => void
-  onToggleMask?: () => void
-  onStartEditing?: () => void
-  maskVisible?: boolean
-  isEditing?: boolean
   structureId: number
-  onCoordinatesChange?: (coords: Coordinate[]) => void // ADD THIS
-  onCoordinateClick?: (coord: Coordinate) => void // ADD THIS
+  onAddCoordinate: () => void 
 }
 
-function SidebarItem({ 
-  title, 
-  color, 
-  coordinates, 
-  onAdd,
-  onToggleMask,
-  onStartEditing,
-  maskVisible = false,
-  isEditing = false,
-  structureId,
-  onCoordinatesChange,
-  onCoordinateClick
-}: SidebarItemProps) {
-  const { currentSliceURL, setSelectedCoordinates, volumeData } = useMRI()
-  setSelectedCoordinates(coordinates)
+function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
+  // ========================
+  // GET STATE FROM STORES
+  // ========================
+  const jumpToCoordinate = useViewerStore((state) => state.jumpToCoordinate)
   
+  // Get structure data
+  const structure = useStructureStore((state) => 
+    state.structures.find(s => s.id === structureId)
+  )
+  const { updateCoordinates } = useStructureStore()
+  
+  // Get mask state
+  const maskVisibility = useMaskStore((state) => state.maskVisibility)
+  const activeStructureId = useMaskStore((state) => state.activeStructureId)
+  const { toggleMaskVisibility, setActiveStructure } = useMaskStore()
+  
+  const { currentSliceURL } = useMRI()
+  
+  // ========================
+  // LOCAL STATE
+  // ========================
   const [isExpanded, setIsExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null)
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
+  const [segmentedExpanded, setSegmentedExpanded] = useState(false)
+  
+  // ========================
+  // GUARDS
+  // ========================
+  if (!structure) {
+    console.error(`Structure ${structureId} not found`)
+    return null
+  }
+
+  const { title, color, coordinates } = structure
+  const maskVisible = maskVisibility[structureId] || false
+  const isEditing = activeStructureId === structureId
+
+  // ========================
+  // HANDLERS
+  // ========================
   
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded)
@@ -56,15 +66,27 @@ function SidebarItem({
     console.log(`Gemini action for ${title}`)
   }
   
-  const handleEditCoordinate = (index: number) => {
-    console.log(`Edit coordinate ${index} from ${title}`)
+  const handleToggleMask = () => {
+    console.log(`Toggle mask for structure ${structureId}`)
+    toggleMaskVisibility(structureId)
+    maskManager.toggleVisibility(structureId)
+  }
+
+  const handleStartEditing = () => {
+    if (isEditing) return
+    console.log(`Start editing structure ${structureId}`)
+    setActiveStructure(structureId)
+
+    // Auto-enable mask visibility
+    if(!maskVisibility[structureId]) {
+      toggleMaskVisibility(structureId)
+      maskManager.setVisibility(structureId, true)
+    }
   }
   
-  const handleCoordinateClick = (coord: Coordinate) => {
+  const handleCoordinateClick = (coord: { x: number; y: number; z: number }) => {
     console.log('📍 Jumping to coordinate:', coord)
-    if (onCoordinateClick) {
-      onCoordinateClick(coord)
-    }
+    jumpToCoordinate(coord)
   }
   
   const handleDeleteCoordinate = (index: number) => {
@@ -72,11 +94,9 @@ function SidebarItem({
   }
 
   const confirmDelete = (index: number) => {
-    console.log(`🗑️ Deleting coordinate ${index}`)
+    console.log(`🗑️ Deleting coordinate ${index} from structure ${structureId}`)
     const newCoordinates = coordinates.filter((_, i) => i !== index)
-    if (onCoordinatesChange) {
-      onCoordinatesChange(newCoordinates)
-    }
+    updateCoordinates(structureId, newCoordinates)
     setDeleteConfirmIndex(null)
   }
 
@@ -92,9 +112,11 @@ function SidebarItem({
       console.log(`🔄 Generating mask for coordinate ${index}`)
       
       const coord = coordinates[index]
+      console.log('📍 Jumping to coordinate before generating:', coord)
+      jumpToCoordinate(coord)
       
       if (!currentSliceURL) {
-        console.error('❌ No slice URL')
+        console.error('❌ No slice URL available')
         setIsGenerating(false)
         setLoadingIndex(null)
         return
@@ -113,7 +135,7 @@ function SidebarItem({
         
         const existingMask = maskManager.getMask(structureId)
         if (!existingMask) {
-          console.error("❌ No mask for structure", structureId)
+          console.error("❌ No mask exists for structure", structureId)
           setIsGenerating(false)
           setLoadingIndex(null)
           return
@@ -121,6 +143,7 @@ function SidebarItem({
 
         console.log("📦 Volume dimensions:", existingMask.dims)
         
+        // Decode base64 mask
         const maskBase64 = response.data.mask.split(',')[1]
         const binaryString = atob(maskBase64)
         const bytes = new Uint8Array(binaryString.length)
@@ -155,6 +178,7 @@ function SidebarItem({
           
           console.log(`🔧 Mapping ${img.width}x${img.height} mask to ${dimX}x${dimY} volume slice ${sliceIndex}`)
           
+          // Save history before modifying
           maskManager.setCurrentSlice(structureId, sliceIndex)
           if (!maskManager.canUndo(structureId, sliceIndex)) {
             maskManager.saveHistory(structureId, sliceIndex)
@@ -162,6 +186,7 @@ function SidebarItem({
           
           let pixelsAdded = 0
           
+          // Map mask pixels to volume
           for (let maskY = 0; maskY < img.height; maskY++) {
             for (let maskX = 0; maskX < img.width; maskX++) {
               const idx = (maskY * img.width + maskX) * 4
@@ -185,16 +210,19 @@ function SidebarItem({
           
           console.log(`✅ Added ${pixelsAdded} pixels to mask`)
           
+          // Save history after modification
           maskManager.saveHistory(structureId, sliceIndex)
-          maskManager.setVisibility(structureId, true)
-          onToggleMask?.()
+          
+          // Make mask visible if not already
+          if (!maskVisible) {
+            maskManager.setVisibility(structureId, true)
+            toggleMaskVisibility(structureId)
+          }
           
           // Mark coordinate as having segmentation
           const updatedCoordinates = [...coordinates]
           updatedCoordinates[index] = { ...coord, hasSegmentation: true }
-          if (onCoordinatesChange) {
-            onCoordinatesChange(updatedCoordinates)
-          }
+          updateCoordinates(structureId, updatedCoordinates)
           
           URL.revokeObjectURL(img.src)
           setIsGenerating(false)
@@ -214,11 +242,15 @@ function SidebarItem({
         setLoadingIndex(null)
       }
     } catch (error: any) {
-      console.error('❌ Error:', error.message)
+      console.error('❌ Generation error:', error.message)
       setIsGenerating(false)
       setLoadingIndex(null)
     }
   }
+
+  // ========================
+  // RENDER
+  // ========================
 
   return (
     <div className="sidebar-item-container">
@@ -228,9 +260,10 @@ function SidebarItem({
           {title}
         </span>
         
+        {/* Toggle Mask Visibility */}
         <button 
           className={`sidebar-item-btn ${maskVisible ? 'active-mask' : ''}`}
-          onClick={onToggleMask}
+          onClick={handleToggleMask}
           title={maskVisible ? 'Hide mask' : 'Show mask'}
           style={maskVisible ? {
             backgroundColor: `${color}33`,
@@ -240,9 +273,10 @@ function SidebarItem({
           {maskVisible ? <FiEye /> : <FiEyeOff />}
         </button>
         
+        {/* Start Editing */}
         <button 
           className={`sidebar-item-btn ${isEditing ? 'active-editing' : ''}`}
-          onClick={onStartEditing}
+          onClick={handleStartEditing}
           disabled={isEditing}
           title={isEditing ? 'Editing...' : 'Edit mask'}
           style={isEditing ? {
@@ -254,28 +288,141 @@ function SidebarItem({
           <FiEdit2 />
         </button>
         
-        <button className="sidebar-item-btn" onClick={onAdd}>
+        {/* Add Coordinate */}
+        <button 
+          className="sidebar-item-btn" 
+          onClick={onAddCoordinate}
+          title="Add coordinate"
+        >
           +
         </button>
       </div>
       
       {isExpanded && (
-        <div className="coordinates-list">
-          <div className="coordinates-header">
-            <span>Coordinates</span>
-            <button className="gen-btn" onClick={handleGeminiAction}>
-              <FiGrid size={16} />
-            </button>
-          </div>
+  <div className="coordinates-list">
+    {/* Unsegmented Coordinates Section */}
+    <div className="coordinates-section">
+      <div className="coordinates-header">
+        <span>Active Points ({coordinates.filter(c => !c.hasSegmentation).length})</span>
+        <button className="gen-btn" onClick={handleGeminiAction} title="Bulk actions">
+          <FiGrid size={16} />
+        </button>
+      </div>
+      
+      {coordinates.filter(c => !c.hasSegmentation).length > 0 ? (
+        [...coordinates].reverse().map((coord, reverseIndex) => {
+          if (coord.hasSegmentation) return null
           
-          {coordinates.length > 0 ? (
-            [...coordinates].reverse().map((coord, reverseIndex) => {
+          const index = coordinates.length - 1 - reverseIndex
+          return (
+            <div 
+              key={index} 
+              className="coordinate-item"
+              onClick={() => handleCoordinateClick(coord)}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="coord-info">
+                <span className="coord-label">P{index + 1}:</span>
+                <span className="coord-values">
+                  X:{coord.x} Y:{coord.y} Z:{coord.z}
+                </span>
+              </div>
+              <div className="coord-actions">
+                {isGenerating && loadingIndex === index ? (
+                  <button 
+                    className="coord-action-btn"
+                    disabled
+                    title="Generating..."
+                  >
+                    <div className="coord-loading-spinner" />
+                  </button>
+                ) : (
+                  <button 
+                    className="coord-action-btn generate-btn" 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleGenerateCoordinate(index)
+                    }}
+                    disabled={isGenerating}
+                    title="Generate segmentation"
+                  >
+                    <FiStar />
+                  </button>
+                )}
+                
+                <div style={{ position: 'relative' }}>
+                  <button 
+                    className="coord-action-btn delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteCoordinate(index)
+                    }}
+                    title="Delete coordinate"
+                  >
+                    <FiTrash2 />
+                  </button>
+                  
+                  {deleteConfirmIndex === index && (
+                    <div className="delete-confirmation">
+                      <p>Delete this point?</p>
+                      <div className="delete-actions">
+                        <button 
+                          className="delete-yes"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmDelete(index)
+                          }}
+                        >
+                          Yes
+                        </button>
+                        <button 
+                          className="delete-no"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            cancelDelete()
+                          }}
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })
+      ) : (
+        <div className="no-coordinates">No active points</div>
+      )}
+    </div>
+
+    {/* Segmented Coordinates Section - Collapsible */}
+    {coordinates.filter(c => c.hasSegmentation).length > 0 && (
+      <div className="coordinates-section segmented-section">
+        <div 
+          className="coordinates-header collapsible"
+          onClick={() => setSegmentedExpanded(!segmentedExpanded)}
+          style={{ cursor: 'pointer' }}
+        >
+          <span>
+            Segmented ({coordinates.filter(c => c.hasSegmentation).length})
+            {segmentedExpanded ? ' ▼' : ' ▶'}
+          </span>
+        </div>
+        
+        {segmentedExpanded && (
+          <div className="segmented-list">
+            {[...coordinates].reverse().map((coord, reverseIndex) => {
+              if (!coord.hasSegmentation) return null
+              
               const index = coordinates.length - 1 - reverseIndex
               return (
                 <div 
                   key={index} 
-                  className={`coordinate-item ${coord.hasSegmentation ? 'has-segmentation' : ''}`}
+                  className="coordinate-item segmented-item"
                   onClick={() => handleCoordinateClick(coord)}
+                  style={{ cursor: 'pointer' }}
                 >
                   <div className="coord-info">
                     <span className="coord-label">P{index + 1}:</span>
@@ -284,32 +431,6 @@ function SidebarItem({
                     </span>
                   </div>
                   <div className="coord-actions">
-      
-                    
-                    {/* Show spinner while generating, hide button after */}
-                    {isGenerating && loadingIndex === index ? (
-                      <button 
-                      className="coord-action-btn"
-                      disabled
-                      
-                    >
-                      <div className="coord-loading-spinner" />
-                    </button>
-                    ) : !coord.hasSegmentation ? (
-                      <button 
-                        className="coord-action-btn generate-btn" 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleGenerateCoordinate(index)
-                        }}
-                        disabled={isGenerating}
-                        title="Generate segmentation"
-                      >
-                        <FiStar/>
-                      </button>
-                    ) : null}
-                    
-                    {/* Delete button with confirmation */}
                     <div style={{ position: 'relative' }}>
                       <button 
                         className="coord-action-btn delete-btn"
@@ -319,7 +440,7 @@ function SidebarItem({
                         }}
                         title="Delete coordinate"
                       >
-                        <FiTrash2/>
+                        <FiTrash2 />
                       </button>
                       
                       {deleteConfirmIndex === index && (
@@ -351,12 +472,13 @@ function SidebarItem({
                   </div>
                 </div>
               )
-            })
-          ) : (
-            <div className="no-coordinates">No coordinates</div>
-          )}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+)}
     </div>
   )
 }

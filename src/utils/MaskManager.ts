@@ -41,10 +41,18 @@ export interface Mask {
       }
     }
   
-    emit(event: string, ...args: any[]) {
-      if (!this.events.has(event)) return
-      const listeners = this.events.get(event)!
-      listeners.forEach(listener => listener(...args))
+    emit(event: string, ...args: any[]): void {
+      const handlers = this.events.get(event)
+      console.log('🔊 Emitting:', event, 'Listeners count:', handlers?.length || 0)
+      
+      if (handlers) {
+        handlers.forEach(handler => {
+          console.log('📤 Calling handler for', event)
+          handler(...args)
+        })
+      } else {
+        console.warn('⚠️ No handlers registered for event:', event)
+      }
     }
   
     removeAllListeners(event?: string) {
@@ -77,10 +85,10 @@ export interface Mask {
       this.sliceHistory.set(structureId, {})
       this.currentSlice.set(structureId, 0)
       
-      console.log(`✅ Created mask for structure ${structureId}`, mask)
+      console.log(`Created mask for structure ${structureId}`, mask)
       return mask
     }
-    // if undefined create a mask
+  
     getMask(structureId: number): Mask | undefined {
       return this.masks.get(structureId)
     }
@@ -258,7 +266,9 @@ export interface Mask {
         }
       }
   
+      console.log('📢 Emitting maskUpdated for structure', structureId)
       this.emit('maskUpdated', structureId)
+  
     }
   
     getMaskSlice(

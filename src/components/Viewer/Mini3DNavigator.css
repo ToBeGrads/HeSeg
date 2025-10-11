@@ -1,0 +1,146 @@
+/* src/components/Viewer/Mini3DNavigator.css */
+.mini-3d-navigator {
+    position: fixed;
+    background-color: rgba(20, 20, 20, 0.95);
+    border: 2px solid #7ddb94;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, height 0.3s ease;
+    cursor: move;
+    user-select: none;
+  }
+  
+  .mini-3d-navigator.dragging {
+    cursor: grabbing;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+  }
+  
+  .mini-3d-navigator.expanded {
+    border-color: #6bc47d;
+    box-shadow: 0 12px 32px rgba(125, 219, 148, 0.3);
+  }
+  
+  /* Header */
+  .mini-3d-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(135deg, rgba(125, 219, 148, 0.2), rgba(107, 196, 125, 0.2));
+    border-bottom: 1px solid rgba(125, 219, 148, 0.3);
+    border-radius: 10px 10px 0 0;
+    cursor: grab;
+  }
+  
+  .mini-3d-navigator.dragging .mini-3d-header {
+    cursor: grabbing;
+  }
+  
+  .mini-3d-title {
+    color: #7ddb94;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .mini-3d-controls {
+    display: flex;
+    gap: 0.25rem;
+    cursor: pointer;
+  }
+  
+  .mini-3d-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #7ddb94;
+    padding: 0.25rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .mini-3d-btn:hover {
+    background-color: rgba(125, 219, 148, 0.2);
+    border-color: #7ddb94;
+    transform: scale(1.1);
+  }
+  
+  /* Canvas Wrapper */
+  .mini-3d-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle, rgba(30, 30, 30, 1), rgba(20, 20, 20, 1));
+  }
+  
+  .mini-3d-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+  
+  /* Coordinates Display */
+  .mini-3d-coords {
+    display: flex;
+    justify-content: space-around;
+    padding: 0.4rem;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid rgba(125, 219, 148, 0.3);
+    border-radius: 0 0 10px 10px;
+    font-size: 0.65rem;
+    font-family: 'Courier New', monospace;
+    color: #7ddb94;
+    font-weight: bold;
+  }
+  
+  .mini-3d-coords span {
+    background-color: rgba(125, 219, 148, 0.1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(125, 219, 148, 0.2);
+  }
+  
+  /* Animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .mini-3d-navigator {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .mini-3d-navigator {
+      width: 150px !important;
+      height: 150px !important;
+    }
+  
+    .mini-3d-navigator.expanded {
+      width: 300px !important;
+      height: 300px !important;
+    }
+  
+    .mini-3d-title {
+      font-size: 0.65rem;
+    }
+  
+    .mini-3d-coords {
+      font-size: 0.6rem;
+    }
+  }

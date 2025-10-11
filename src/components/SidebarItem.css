@@ -465,3 +465,80 @@
 .delete-no:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
+/* Coordinates Sections */
+.coordinates-section {
+  margin-bottom: 0.75rem;
+}
+
+.coordinates-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Segmented Section */
+.segmented-section {
+  border-top: 1px solid rgba(125, 219, 148, 0.2);
+  padding-top: 0.75rem;
+}
+
+.coordinates-header.collapsible {
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.coordinates-header.collapsible:hover {
+  background-color: rgba(125, 219, 148, 0.05);
+  border-radius: 4px;
+}
+
+/* Segmented List - Compact & Scrollable */
+.segmented-list {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.25rem;
+}
+
+/* Custom scrollbar for segmented list */
+.segmented-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.segmented-list::-webkit-scrollbar-track {
+  background: rgba(125, 219, 148, 0.1);
+  border-radius: 2px;
+}
+
+.segmented-list::-webkit-scrollbar-thumb {
+  background: rgba(125, 219, 148, 0.3);
+  border-radius: 2px;
+}
+
+.segmented-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(125, 219, 148, 0.5);
+}
+
+/* Compact Segmented Items */
+.coordinate-item.segmented-item {
+  padding: 0.3rem 0;
+  font-size: 0.65rem;
+}
+
+.coordinate-item.segmented-item .coord-label {
+  font-size: 0.7rem;
+}
+
+.coordinate-item.segmented-item .coord-values {
+  font-size: 0.65rem;
+}
+
+.coordinate-item.segmented-item .coord-action-btn {
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+}
+
+/* Remove the old has-segmentation styles since we have separate section now */
+.coordinate-item.has-segmentation {
+  background-color: rgba(125, 219, 148, 0.08);
+  border-left: 2px solid #7ddb94;
+}

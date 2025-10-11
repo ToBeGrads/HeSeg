@@ -24,6 +24,7 @@ export function MaskOverlay({
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
+    console.log('🎨 MaskOverlay updating, data length:', maskData.length)
     const canvas = canvasRef.current
     if (!canvas) return
 

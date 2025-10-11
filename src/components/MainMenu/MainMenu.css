@@ -1,0 +1,130 @@
+.mainmenu-container {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #181818;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 2rem 1rem 1rem 1rem;
+}
+
+.mainmenu-grid {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+}
+
+/* Desktop */
+.mainmenu-option {
+  width: 15rem;
+  height: 15rem;
+  background: transparent;
+  color: #7ddb94;
+  border: 2px solid #7ddb94;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+  margin-bottom: 1.5rem;
+  padding: 3rem 0;
+}
+.mainmenu-icon {
+  font-size: 3rem; /* default desktop size */
+  margin-bottom: 0.5rem;
+  display: block;
+}
+.mainmenu-option p{
+  color: white;
+}
+.mainmenu-option:hover {
+  transform: scale(1.07);
+  box-shadow: 0 12px 40px rgba(125, 219, 148, 0.3);
+}
+
+.mainmenu-logout {
+  height: 10%;
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0 2rem;
+}
+.mainmenu-logout button {
+  background-color: transparent;
+  color: white;
+  border: 2px solid #d98989;
+  border-radius: 24px;
+  outline: none;
+  font-size: 1.2rem;
+  padding: 0.6rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out; 
+}
+.mainmenu-logout button:hover {
+  background-color: #d98989;
+  color: #181818;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .mainmenu-grid {
+    gap: 1.5rem;
+  }
+  .mainmenu-option {
+    width: 12rem;
+    height: 12rem;
+    font-size: 1.3rem;
+  }
+  .mainmenu-icon {
+    font-size: 2rem;
+  }
+}
+
+/* Phone */
+@media (max-width: 600px) {
+  .mainmenu-container {
+    padding: 1rem 0.5rem;
+  }
+  .mainmenu-grid {
+    flex-direction: column;
+    gap: 1.2rem;
+    align-items: center;
+  }
+  .mainmenu-option {
+    width: 90vw;
+    max-width: 18rem;
+    height: 5.5rem;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+    flex-direction: row;
+  }
+  .mainmenu-logout {
+    justify-content: center;
+    margin-top: 0.5rem;
+    padding: 0;
+  }
+  .mainmenu-logout button {
+    width: 100%;
+    max-width: 18rem;
+    margin: 0 auto;
+  }
+  .mainmenu-icon {
+    font-size: 1.5rem;
+  }
+}

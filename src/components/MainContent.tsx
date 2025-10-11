@@ -1,114 +1,39 @@
-import { useState, useEffect } from 'react'
+// src/components/MainContent.tsx
+import { useEffect } from 'react'
 import './MainContent.css'
-import EndBar from './EndBar'
-import AdvancedMRIViewer from './AdvancedMRIViewer'
-import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
-import { useMRI } from '../Context/MRIcontext'
+import AdvancedMRIViewer from './Viewer/AdvancedMRIViewer'
+import { useVolumeStore } from '../store/useVolumeStore' // ✨ NEW
+import { useAppStore } from '../store/useAppStore' // ✨ NEW
 
-interface PlacementMode {
-  active: boolean
-  structureId: number | null
-  color: string | null
-}
+function MainContent() {
+  // ✨ Get state from stores
+  const { volumeData, loading, error, loadVolume } = useVolumeStore()
+  const appLoading = useAppStore((state) => state.loading)
 
-interface MainContentProps {
-  placementMode: {
-    active: boolean
-    structureId?: number | null
-    color?: string | null
-    isEditing?: boolean
-    currentCoordinate?: { x: number; y: number; z: number }
-  }
-  onPlacementComplete: () => void
-  structures?: any[]
-  maskVisibility?: Record<number, boolean>
-  activeStructureId?: number | null
-  onVolumeDataLoaded?: (data: VolumeData | null) => void
-  onStopEditing?: () => void
-  umpToCoord?: { x: number; y: number; z: number } | null
-}
-
-function MainContent({ 
-  placementMode, 
-  onPlacementComplete,
-  structures = [],
-  maskVisibility = {},
-  activeStructureId = null,
-  onVolumeDataLoaded,
-  onStopEditing,
-  jumpToCoord
-}: MainContentProps) {
-  const { setVolumeData: setContextVolumeData } = useMRI() 
-  const [isEndBarVisible, setIsEndBarVisible] = useState(true)
-  const [volumeData, setVolumeData] = useState<VolumeData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleToggleEndBar = () => {
-    setIsEndBarVisible(!isEndBarVisible)
-  }
-
-  // Load MRI volume for the main viewer
+  // Load volume on mount
   useEffect(() => {
-    const loadVolume = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        console.log('🚀 Starting MRI volume loading...')
-        
-        const possiblePaths = [
-          '../public/Data/MRI/brain.nii.gz'
-        ]
-        
-        let volume = null
-        let loadedPath = ''
-        
-        for (const path of possiblePaths) {
-          try {
-            console.log(`🔍 Trying: ${path}`)
-            volume = await MedicalImageLoader.loadNiftiVolume(path)
-            loadedPath = path
-            console.log(`✅ SUCCESS! Loaded from: ${loadedPath}`)
-            break
-          } catch (error) {
-            console.warn(`❌ Failed: ${path}`)
-          }
-        }
-        
-        if (volume) {
-          setVolumeData(volume)
-          setContextVolumeData(volume)
-          console.log('🎉 Volume ready for viewing!')
-          console.log('Volume dimensions:', volume.dims)
-        } else {
-          const errorMsg = 'No MRI file found. Using demo file or check public folder.'
-          console.error('❌', errorMsg)
-          setError(errorMsg)
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-        console.error('❌ Fatal error loading MRI:', errorMsg)
-        setError(errorMsg)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadVolume()
-  }, [])
+  }, [loadVolume])
 
-  return (
-    <main className="main-content">
-      <div className="content-area">
-        {loading ? (
+  // Loading state
+  if (loading || appLoading) {
+    return (
+      <main className="main-content">
+        <div className="content-area">
           <div className="viewer-loading">
             <div className="loading-spinner large"></div>
-            <p>Loading MRI Viewer...</p>
-            <p style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.5rem' }}>
-              This may take a few moments...
-            </p>
+            <p>Loading MRI data...</p>
           </div>
-        ) : error ? (
+        </div>
+      </main>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <main className="main-content">
+        <div className="content-area">
           <div className="viewer-loading">
             <p style={{ color: '#ff6b6b', fontSize: '1rem' }}>⚠️ {error}</p>
             <p style={{ color: '#999', fontSize: '0.85rem', marginTop: '0.5rem' }}>
@@ -131,17 +56,21 @@ function MainContent({
               Retry Loading
             </button>
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Main viewer
+  return (
+    <main className="main-content">
+      <div className="content-area">
+        {volumeData ? (
+          <AdvancedMRIViewer />
         ) : (
-          <AdvancedMRIViewer
-            volumeData={volumeData}
-            placementMode={placementMode}
-            onPlacementComplete={onPlacementComplete}
-            structures={structures}
-            maskVisibility={maskVisibility}
-            activeStructureId={activeStructureId}
-            onStopEditing={onStopEditing}
-            jumpToCoord={jumpToCoord}
-          />
+          <div className="viewer-loading">
+            <p>No volume data</p>
+          </div>
         )}
       </div>
     </main>
