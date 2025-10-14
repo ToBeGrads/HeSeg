@@ -4,11 +4,12 @@ import { usePlacementStore } from '../../store/usePlacementStore'
 interface PreviewControlsProps {
   coordinate: { x: number; y: number; z: number }
   onSave: () => void
+  onCancel :() => void
 }
 
-export function PreviewControls({ coordinate, onSave }: PreviewControlsProps) {
+export function PreviewControls({ coordinate, onSave, onCancel }: PreviewControlsProps) {
   // ✨ Get state directly from store
-  const { isEditing, cancelPlacement } = usePlacementStore()
+  const { isEditing} = usePlacementStore()
 
   return (
     <div className="preview-controls-bottom">
@@ -34,7 +35,7 @@ export function PreviewControls({ coordinate, onSave }: PreviewControlsProps) {
           className="preview-btn cancel-btn"
           onClick={(e) => {
             e.stopPropagation()
-            cancelPlacement()
+            onCancel()
           }}
         >
           Cancel

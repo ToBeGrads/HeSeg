@@ -288,6 +288,18 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
     }
   }
 
+  const handleCancelCoordinate = () => {
+    if (!externalPreviewCoord || !placementStructureId) return
+
+    onPreviewCoordinateChange?.(null)
+    completePlacement()
+
+    if (viewState.scale === 2.5) {
+      resetViewState(orientation)
+    }
+  }
+
+
   // ========================
   // MOUSE HANDLERS
   // ========================
@@ -617,10 +629,11 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
           {!viewOnly && placementActive && !externalPreviewCoord && <PlacementOverlay />}
           
           {/* Preview Controls - Hide in view-only */}
-          {!viewOnly && externalPreviewCoord && (
+          {!viewOnly && externalPreviewCoord &&  placementActive && (
             <PreviewControls
               coordinate={externalPreviewCoord}
               onSave={handleSaveCoordinate}
+              onCancel={handleCancelCoordinate}
             />
           )}
         

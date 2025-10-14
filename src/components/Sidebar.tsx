@@ -31,8 +31,8 @@ function Sidebar() {
     if (volumeData && volumeData.dims) {
       console.log('🎭 Volume loaded, initializing masks')
       
-      structures.forEach(structure => {
-        if (!maskManager.getMask(structure.id)) {
+      structures.forEach(async structure => {
+        if (!await maskManager.getMask(structure.id)) {
           console.log(`📝 Creating mask for structure ${structure.id}`)
           maskManager.createMask(structure.id, volumeData.dims)
         }

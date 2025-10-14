@@ -39,7 +39,6 @@ export const useVolumeStore = create<VolumeState>()(
           const possiblePaths = [
             path,
             '../public/Data/MRI/brain.nii.gz',
-            './Data/MRI/brain.nii.gz'
           ]
           
           let volume: VolumeData | null = null

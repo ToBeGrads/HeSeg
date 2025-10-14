@@ -1,4 +1,6 @@
 // src/utils/MaskManager.ts
+// before the optimization
+import { openDB } from 'idb';
 import { saveMask, deleteMask, loadMask } from './MaskDB';
 export interface Mask {
     id: number
@@ -69,8 +71,10 @@ export interface Mask {
     private sliceHistory: Map<number, SliceHistory> = new Map()
     private currentSlice: Map<number, number> = new Map()
     private maxHistorySize = 50
-    
-    async createMask(structureId: number, dims: [number, number, number]): Promise<Mask> {
+
+  
+  
+    createMask(structureId: number, dims: [number, number, number]): Mask {
       const totalVoxels = dims[0] * dims[1] * dims[2]
       const mask: Mask = {
         id: Date.now(),
@@ -86,13 +90,14 @@ export interface Mask {
       this.currentSlice.set(structureId, 0)
       
       console.log(`Created mask for structure ${structureId}`, mask)
-      await saveMask(structureId, dims, mask.data)
+
+      saveMask(structureId, dims, mask.data)
       return mask
     }
   
-    async getMask(structureId: number): Promise<Mask | null> {
-      // 1️⃣ Check in-memory first
-      const mask = this.masks.get(structureId)
+    async getMask(structureId: number): Promise<Mask> {
+      // 1️⃣ Check in-memory first (fast path)
+      let mask = this.masks.get(structureId)
       if (mask) {
         return mask
       }
@@ -103,17 +108,34 @@ export interface Mask {
         stored = await loadMask(structureId)
       } catch (err) {
         console.error(`❌ Failed to load mask from DB for structure ${structureId}:`, err)
-        return null
       }
     
-      // If nothing in DB, return null
-      if (!stored || !stored.data || !stored.dims || stored.dims.length !== 3) {
-        console.warn(`⚠️ No mask found for structure ${structureId}`)
-        return null
+      // 3️⃣ Validate stored mask
+      if (!stored || !stored.data || !Array.isArray(stored.dims) || stored.dims.length !== 3) {
+        console.warn(`⚠️ No valid mask found for structure ${structureId}, creating new empty mask.`)
+        
+        const defaultDims: [number, number, number] = [256, 256, 150] // adjust based on MRI volume
+        const emptyMask = new Uint8Array(defaultDims[0] * defaultDims[1] * defaultDims[2])
+        
+        mask = {
+          id: Date.now(),
+          structureId,
+          data: emptyMask,
+          dims: defaultDims,
+          visible: false,
+          opacity: 0.2,
+        }
+    
+        this.masks.set(structureId, mask)
+        this.sliceHistory.set(structureId, {})
+        this.currentSlice.set(structureId, 0)
+        console.log(`🆕 Created new empty mask for structure ${structureId}`)
+        
+        return mask
       }
     
-      // Rebuild mask from DB
-      const loadedMask: Mask = {
+      // 4️⃣ Rebuild Mask object from DB and cache it
+      mask = {
         id: Date.now(),
         structureId,
         data: stored.data,
@@ -122,17 +144,15 @@ export interface Mask {
         opacity: stored.opacity ?? 0.2,
       }
     
-      // Save in memory
-      this.masks.set(structureId, loadedMask)
+      this.masks.set(structureId, mask)
       this.sliceHistory.set(structureId, {})
       this.currentSlice.set(structureId, 0)
     
       console.log(`✅ Loaded mask for structure ${structureId} from IndexedDB`)
       this.emit('maskLoaded', structureId)
     
-      return loadedMask
+      return mask
     }
-    
     
     
   

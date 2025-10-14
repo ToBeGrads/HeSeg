@@ -9,6 +9,7 @@ import { useViewerStore } from '../store/useViewerStore'
 import { useStructureStore } from '../store/useStructureStore'
 import { useMaskStore } from '../store/useMaskStore'
 
+
 interface SidebarItemProps {
   structureId: number
   onAddCoordinate: () => void 
@@ -32,6 +33,8 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
   const { toggleMaskVisibility, setActiveStructure } = useMaskStore()
   
   const { currentSliceURL } = useMRI()
+
+  
   
   // ========================
   // LOCAL STATE
@@ -124,7 +127,7 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
 
       console.log(`📍 Coordinate: x=${coord.x}, y=${coord.y}, z=${coord.z}`)
       
-      const response = await Axios.post("/segment", {
+      const response = await Axios.post("/segment/", {
         coords: coord,
         file: currentSliceURL,
       })
@@ -133,7 +136,9 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
         console.log("✅ Received mask from backend")
         console.log("📏 Mask shape:", response.data.mask_shape)
         
-        const existingMask = maskManager.getMask(structureId)
+        const existingMask = await maskManager.getMask(structureId)
+        console.log("📦 Existing mask:", existingMask)
+
         if (!existingMask) {
           console.error("❌ No mask exists for structure", structureId)
           setIsGenerating(false)

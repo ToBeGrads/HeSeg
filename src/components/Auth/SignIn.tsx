@@ -13,7 +13,7 @@ export default function SignIn({ onLogin }: { onLogin: (token: string) => void }
     e.preventDefault()
     setError('')
     try {
-      const res = await Axios.post('/login', { username, password })
+      const res = await Axios.post('/Login/', { email :username, password })
       onLogin(res.data.access_token)
     } catch {
       setError('Invalid username or password')
