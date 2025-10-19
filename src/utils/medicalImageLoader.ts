@@ -16,6 +16,8 @@ export interface VolumeData {
   min: number;
   max: number;
   voxelSize: number[];
+  scl_slope: number;
+  scl_inter: number;
 }
 
 export class MedicalImageLoader {
@@ -23,7 +25,6 @@ export class MedicalImageLoader {
     try {
       console.log('🔄 Loading NIfTI file:', filePath);
       
-      // Use NVImage.loadFromUrl which returns a Promise<NVImage>
       const nvImage = await NVImage.loadFromUrl({ url: filePath });
       
       if (!nvImage || !nvImage.img) {
@@ -33,38 +34,30 @@ export class MedicalImageLoader {
       console.log('✅ NIfTI loaded successfully');
       console.log('  Header dims:', nvImage.hdr?.dims);
       console.log('  Datatype:', nvImage.hdr?.datatypeCode);
-      console.log('  Image array length:', nvImage.img.length);
       
-      // Get proper dimensions and voxel spacing
       const dims = nvImage.hdr?.dims?.slice(1, 4) || [256, 256, 180];
       const voxelSize = nvImage.hdr?.pixDims?.slice(1, 4) || [1, 1, 1];
       
-      // Calculate min/max efficiently without spreading the array
+      const scl_slope = nvImage.hdr?.scl_slope || 1;
+      const scl_inter = nvImage.hdr?.scl_inter || 0;
+      
+      console.log('  Scaling: slope =', scl_slope, ', intercept =', scl_inter);
+      
+      // BRAINCHOP METHOD: Calculate min/max from actual data
       let min = Infinity;
       let max = -Infinity;
       
-      // Process in chunks to avoid stack overflow
-      const chunkSize = 10000;
-      for (let i = 0; i < nvImage.img.length; i += chunkSize) {
-        const end = Math.min(i + chunkSize, nvImage.img.length);
-        for (let j = i; j < end; j++) {
-          const val = nvImage.img[j];
+      // Apply scaling and find true min/max
+      for (let i = 0; i < nvImage.img.length; i++) {
+        const val = nvImage.img[i] * scl_slope + scl_inter;
+        if (isFinite(val)) {
           if (val < min) min = val;
           if (val > max) max = val;
         }
       }
       
-      // Use header values if available and reasonable
-      if (nvImage.hdr?.cal_min !== undefined && 
-          nvImage.hdr?.cal_max !== undefined &&
-          nvImage.hdr.cal_min < nvImage.hdr.cal_max) {
-        min = nvImage.hdr.cal_min;
-        max = nvImage.hdr.cal_max;
-      }
-      
       console.log('📊 Volume info:');
       console.log('  Dimensions:', dims);
-      console.log('  Voxel Size:', voxelSize);
       console.log('  Value Range:', [min, max]);
       
       return {
@@ -72,7 +65,9 @@ export class MedicalImageLoader {
         dims,
         min,
         max,
-        voxelSize
+        voxelSize,
+        scl_slope,
+        scl_inter
       };
     } catch (error) {
       console.error('❌ Error loading NIfTI file:', error);
@@ -80,38 +75,43 @@ export class MedicalImageLoader {
     }
   }
 
-  // Brainchop-style axial extraction (Z-axis slicing)
   static extractAxialSlices(volume: VolumeData): MedicalImageData[] {
-    const { nvImage } = volume;
-    const [width, height, depth] = volume.dims;
+    const { nvImage, dims, scl_slope, scl_inter, min, max } = volume;
+    const [cols, rows, depth] = dims;
     const slices: MedicalImageData[] = [];
     
     if (!nvImage.img) {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${depth} axial slices (${width}x${height})`);
+    console.log(`📸 Extracting ${depth} axial slices (${cols}x${rows})`);
+    
+    const sliceSize = cols * rows;
     
     for (let z = 0; z < depth; z++) {
-      const sliceData = new Float32Array(width * height);
+      const sliceData = new Float32Array(sliceSize);
+      const sliceOffset = z * sliceSize;
       
-      // Axial slices: XY plane at different Z levels
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const volumeIndex = z * (width * height) + y * width + x;
-          const sliceIndex = y * width + x;
-          sliceData[sliceIndex] = nvImage.img[volumeIndex];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const volumeIndex = sliceOffset + y * cols + x;
+          const sliceIndex = y * cols + x;
+          
+          let value = nvImage.img[volumeIndex];
+          value = value * scl_slope + scl_inter;
+          
+          sliceData[sliceIndex] = value;
         }
       }
       
       slices.push({
         pixelData: sliceData,
-        width,
-        height,
+        width: cols,
+        height: rows,
         sliceIndex: z,
         orientation: 'axial',
-        min: volume.min,
-        max: volume.max
+        min,
+        max
       });
     }
     
@@ -119,40 +119,42 @@ export class MedicalImageLoader {
     return slices;
   }
 
-  // Brainchop-style coronal extraction (Y-axis slicing)
   static extractCoronalSlices(volume: VolumeData): MedicalImageData[] {
-    const { nvImage } = volume;
-    const [width, height, depth] = volume.dims;
+    const { nvImage, dims, scl_slope, scl_inter, min, max } = volume;
+    const [cols, rows, depth] = dims;
     const slices: MedicalImageData[] = [];
     
     if (!nvImage.img) {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${height} coronal slices (${width}x${depth})`);
+    console.log(`📸 Extracting ${rows} coronal slices (${cols}x${depth})`);
     
-    for (let y = 0; y < height; y++) {
-      const sliceData = new Float32Array(width * depth);
+    const sliceSize = cols * rows;
+    
+    for (let y = 0; y < rows; y++) {
+      const sliceData = new Float32Array(cols * depth);
       
-      // Coronal slices: XZ plane at different Y levels
       for (let z = 0; z < depth; z++) {
-        for (let x = 0; x < width; x++) {
-          const volumeIndex = z * (width * height) + y * width + x;
-          // Flip Z coordinate for proper radiological orientation
-          const flippedZ = depth - 1 - z;
-          const sliceIndex = flippedZ * width + x;
-          sliceData[sliceIndex] = nvImage.img[volumeIndex];
+        for (let x = 0; x < cols; x++) {
+          const volumeIndex = z * sliceSize + y * cols + x;
+          const sliceIndex = z * cols + x;
+          
+          let value = nvImage.img[volumeIndex];
+          value = value * scl_slope + scl_inter;
+          
+          sliceData[sliceIndex] = value;
         }
       }
       
       slices.push({
         pixelData: sliceData,
-        width,
+        width: cols,
         height: depth,
         sliceIndex: y,
         orientation: 'coronal',
-        min: volume.min,
-        max: volume.max
+        min,
+        max
       });
     }
     
@@ -160,40 +162,42 @@ export class MedicalImageLoader {
     return slices;
   }
 
-  // Brainchop-style sagittal extraction (X-axis slicing)
   static extractSagittalSlices(volume: VolumeData): MedicalImageData[] {
-    const { nvImage } = volume;
-    const [width, height, depth] = volume.dims;
+    const { nvImage, dims, scl_slope, scl_inter, min, max } = volume;
+    const [cols, rows, depth] = dims;
     const slices: MedicalImageData[] = [];
     
     if (!nvImage.img) {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${width} sagittal slices (${height}x${depth})`);
+    console.log(`📸 Extracting ${cols} sagittal slices (${rows}x${depth})`);
     
-    for (let x = 0; x < width; x++) {
-      const sliceData = new Float32Array(height * depth);
+    const sliceSize = cols * rows;
+    
+    for (let x = 0; x < cols; x++) {
+      const sliceData = new Float32Array(rows * depth);
       
-      // Sagittal slices: YZ plane at different X levels
       for (let z = 0; z < depth; z++) {
-        for (let y = 0; y < height; y++) {
-          const volumeIndex = z * (width * height) + y * width + x;
-          // Flip Z coordinate for proper radiological orientation
-          const flippedZ = depth - 1 - z;
-          const sliceIndex = flippedZ * height + y;
-          sliceData[sliceIndex] = nvImage.img[volumeIndex];
+        for (let y = 0; y < rows; y++) {
+          const volumeIndex = z * sliceSize + y * cols + x;
+          const sliceIndex = z * rows + y;
+          
+          let value = nvImage.img[volumeIndex];
+          value = value * scl_slope + scl_inter;
+          
+          sliceData[sliceIndex] = value;
         }
       }
       
       slices.push({
         pixelData: sliceData,
-        width: height,
+        width: rows,
         height: depth,
         sliceIndex: x,
         orientation: 'sagittal',
-        min: volume.min,
-        max: volume.max
+        min,
+        max
       });
     }
     
@@ -214,17 +218,19 @@ export class MedicalImageLoader {
     }
   }
 
+  /**
+   * BRAINCHOP EXACT METHOD: Simple linear mapping from min to max
+   * This is what Brainchop does - just normalize to 0-255
+   */
   static convertToImageData(medicalData: MedicalImageData): ImageData {
     const { pixelData, width, height, min = 0, max = 255 } = medicalData;
     
     const imageData = new ImageData(width, height);
     const data = imageData.data;
     
-    // Apply proper windowing - Brainchop style
     const range = max - min;
     
-    if (range === 0) {
-      // All pixels same value, return gray image
+    if (range === 0 || !isFinite(range)) {
       const grayValue = 128;
       for (let i = 0; i < pixelData.length; i++) {
         const pixelIndex = i * 4;
@@ -236,45 +242,141 @@ export class MedicalImageLoader {
       return imageData;
     }
     
-    const windowCenter = min + range * 0.5;
-    const windowWidth = range * 0.8;
-    const windowMin = windowCenter - windowWidth / 2;
-    const windowMax = windowCenter + windowWidth / 2;
+    // BRAINCHOP METHOD: Simple linear scaling
+    // value = Math.ceil(value * 255 / (n_classes - 1))
+    // For our case: normalized = (value - min) / range * 255
     
     for (let i = 0; i < pixelData.length; i++) {
-      let normalizedValue = 0;
       const pixelValue = pixelData[i];
       
-      if (pixelValue <= windowMin) {
-        normalizedValue = 0;
-      } else if (pixelValue >= windowMax) {
-        normalizedValue = 255;
-      } else {
-        normalizedValue = ((pixelValue - windowMin) / windowWidth) * 255;
-      }
+      // Clamp to range
+      const clampedValue = Math.max(min, Math.min(max, pixelValue));
+      
+      // Linear normalization to 0-255
+      const normalizedValue = Math.round(((clampedValue - min) / range) * 255);
       
       const pixelIndex = i * 4;
       
-      // Grayscale with improved contrast
-      data[pixelIndex] = normalizedValue;     // Red
-      data[pixelIndex + 1] = normalizedValue; // Green
-      data[pixelIndex + 2] = normalizedValue; // Blue
-      data[pixelIndex + 3] = 255;             // Alpha
+      // Grayscale
+      data[pixelIndex] = normalizedValue;
+      data[pixelIndex + 1] = normalizedValue;
+      data[pixelIndex + 2] = normalizedValue;
+      data[pixelIndex + 3] = 255;
     }
     
     return imageData;
   }
 
-  static createCanvas(imageData: ImageData): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
+  static createCanvas(imageData: ImageData, options?: {
+    scale?: number;
+    targetWidth?: number;
+    targetHeight?: number;
+    smoothing?: boolean;
+  }): HTMLCanvasElement {
+    const scale = options?.scale || 1;
+    const targetWidth = options?.targetWidth;
+    const targetHeight = options?.targetHeight;
+    const smoothing = options?.smoothing ?? true;
     
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.putImageData(imageData, 0, 0);
+    const nativeCanvas = document.createElement('canvas');
+    nativeCanvas.width = imageData.width;
+    nativeCanvas.height = imageData.height;
+    
+    const nativeCtx = nativeCanvas.getContext('2d', { 
+      alpha: false,
+      willReadFrequently: false
+    });
+    
+    if (!nativeCtx) {
+      throw new Error('Failed to get 2D context');
     }
     
-    return canvas;
+    nativeCtx.imageSmoothingEnabled = false;
+    nativeCtx.putImageData(imageData, 0, 0);
+    
+    if (scale === 1 && !targetWidth && !targetHeight) {
+      return nativeCanvas;
+    }
+    
+    let finalWidth: number;
+    let finalHeight: number;
+    
+    if (targetWidth && targetHeight) {
+      finalWidth = targetWidth;
+      finalHeight = targetHeight;
+    } else if (targetWidth) {
+      finalWidth = targetWidth;
+      finalHeight = Math.round((targetWidth / imageData.width) * imageData.height);
+    } else if (targetHeight) {
+      finalHeight = targetHeight;
+      finalWidth = Math.round((targetHeight / imageData.height) * imageData.width);
+    } else {
+      finalWidth = Math.round(imageData.width * scale);
+      finalHeight = Math.round(imageData.height * scale);
+    }
+    
+    const scaledCanvas = document.createElement('canvas');
+    scaledCanvas.width = finalWidth;
+    scaledCanvas.height = finalHeight;
+    
+    const scaledCtx = scaledCanvas.getContext('2d', {
+      alpha: false,
+      willReadFrequently: false
+    });
+    
+    if (!scaledCtx) {
+      throw new Error('Failed to get scaled 2D context');
+    }
+    
+    scaledCtx.imageSmoothingEnabled = smoothing;
+    scaledCtx.imageSmoothingQuality = 'high';
+    
+    scaledCtx.drawImage(
+      nativeCanvas,
+      0, 0, imageData.width, imageData.height,
+      0, 0, finalWidth, finalHeight
+    );
+    
+    return scaledCanvas;
+  }
+
+  static createDisplayCanvas(
+    imageData: ImageData,
+    containerWidth: number,
+    containerHeight: number,
+    fitMode: 'contain' | 'cover' | 'fill' = 'contain'
+  ): HTMLCanvasElement {
+    const aspectRatio = imageData.width / imageData.height;
+    const containerAspect = containerWidth / containerHeight;
+    
+    let targetWidth: number;
+    let targetHeight: number;
+    
+    if (fitMode === 'fill') {
+      targetWidth = containerWidth;
+      targetHeight = containerHeight;
+    } else if (fitMode === 'contain') {
+      if (aspectRatio > containerAspect) {
+        targetWidth = containerWidth;
+        targetHeight = containerWidth / aspectRatio;
+      } else {
+        targetHeight = containerHeight;
+        targetWidth = containerHeight * aspectRatio;
+      }
+    } else {
+      if (aspectRatio > containerAspect) {
+        targetHeight = containerHeight;
+        targetWidth = containerHeight * aspectRatio;
+      } else {
+        targetWidth = containerWidth;
+        targetHeight = containerWidth / aspectRatio;
+      }
+    }
+    
+    return this.createCanvas(imageData, {
+      targetWidth: Math.round(targetWidth),
+      targetHeight: Math.round(targetHeight),
+      smoothing: true
+    });
   }
 }

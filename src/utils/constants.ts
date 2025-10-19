@@ -8,6 +8,15 @@ export const AVAILABLE_COLORS = [
     '#FF4500', '#DA70D6', '#40E0D0', '#FF69B4', '#00FF7F',
     '#FF6347', '#4169E1', '#FF1493', '#00BFFF', '#ADFF2F'
   ]
+  export const DEFAULT_STRUCTURE_TITLES = [
+    'Caudate Nucleus',
+    'Putamen',
+    'Globus Pallidus',
+    'Subthalamic Nucleus',
+    'Thalamus',
+    'Hippocampus',
+    'Amygdala'
+  ]
   
   export const DEFAULT_STRUCTURES = [
     { id: 1, title: 'Brain Tissue', color: '#F54927', coordinates: [] },

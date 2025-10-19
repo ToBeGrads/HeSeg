@@ -37,8 +37,7 @@ export const useVolumeStore = create<VolumeState>()(
           console.log('Loading MRI volume from:', path)
           
           const possiblePaths = [
-            path,
-            '../public/Data/MRI/brain.nii.gz',
+            '../public/Data/MRI/brain_t2.nii',
           ]
           
           let volume: VolumeData | null = null

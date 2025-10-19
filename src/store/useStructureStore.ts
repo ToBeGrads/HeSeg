@@ -6,40 +6,64 @@ import { DEFAULT_STRUCTURES } from '../utils/constants'
 import { maskManager } from '../utils/MaskManager'
 import { useVolumeStore } from '../store/useVolumeStore'
 
+// Extended Structure type with annotator support
+interface ExtendedStructure extends Structure {
+  annotator?: 'annotator1' | 'annotator2'
+  createdAt?: Date
+  isVisible?: boolean
+}
 
 interface StructureState {
   // State
-  structures: Structure[]
+  structures: ExtendedStructure[]
+  currentAnnotator: 'annotator1' | 'annotator2' | 'rater'
   
   // Actions
-  addStructure: (title: string, color: string) => void
-  updateStructure: (id: number, updates: Partial<Structure>) => void
+  addStructure: (title: string, color: string, annotator?: 'annotator1' | 'annotator2') => void
+  updateStructure: (id: number, updates: Partial<ExtendedStructure>) => void
   deleteStructure: (id: number) => void
   addCoordinate: (structureId: number, coordinate: Coordinate) => void
   updateCoordinates: (structureId: number, coordinates: Coordinate[]) => void
   deleteCoordinate: (structureId: number, index: number) => void
-  getStructure: (id: number) => Structure | undefined
+  getStructure: (id: number) => ExtendedStructure | undefined
+  getStructuresByAnnotator: (annotator: 'annotator1' | 'annotator2') => ExtendedStructure[]
+  getStructuresByType: () => Array<{
+    name: string
+    annotator1: ExtendedStructure | undefined
+    annotator2: ExtendedStructure | undefined
+  }>
+  setCurrentAnnotator: (annotator: 'annotator1' | 'annotator2' | 'rater') => void
+  toggleStructureVisibility: (structureId: number) => void
+  setStructureVisibility: (structureId: number, visible: boolean) => void
   reset: () => void
 }
 
 const initialState = {
-  structures: DEFAULT_STRUCTURES.map((s, i) => ({ ...s, id: i + 1 }))
+  structures: DEFAULT_STRUCTURES.map((s, i) => ({ 
+    ...s, 
+    id: i + 1,
+    annotator: 'annotator1' as const,
+    isVisible: true
+  })),
+  currentAnnotator: 'annotator1' as const
 }
-const { volumeData } = useVolumeStore.getState()
-
 
 export const useStructureStore = create<StructureState>()(
   devtools(
     (set, get) => ({
       ...initialState,
 
-      // Add new structure
-      addStructure: (title, color) => {
-        const newStructure: Structure = {
+      // Add new structure with annotator support
+      addStructure: (title, color, annotator = 'annotator1') => {
+        const { volumeData } = useVolumeStore.getState()
+        const newStructure: ExtendedStructure = {
           id: Date.now(),
           title,
           color,
-          coordinates: []
+          coordinates: [],
+          annotator,
+          createdAt: new Date(),
+          isVisible: true
         }
         
         set(
@@ -49,9 +73,9 @@ export const useStructureStore = create<StructureState>()(
           false,
           'addStructure'
         )
+        
         if (volumeData) {
-          const newId = Date.now()
-          maskManager.createMask(newId, volumeData.dims)
+          maskManager.createMask(newStructure.id, volumeData.dims)
         }
         
         console.log('Structure added:', newStructure)
@@ -142,6 +166,55 @@ export const useStructureStore = create<StructureState>()(
       // Get structure by ID
       getStructure: (id) => {
         return get().structures.find((s) => s.id === id)
+      },
+
+      // Get structures by annotator
+      getStructuresByAnnotator: (annotator) => {
+        return get().structures.filter((s) => s.annotator === annotator)
+      },
+
+      // Get structures grouped by type for rating table
+      getStructuresByType: () => {
+        const structures = get().structures
+        const structureTypes = [...new Set(structures.map(s => s.title))]
+        
+        return structureTypes.map(type => ({
+          name: type,
+          annotator1: structures.find(s => s.title === type && s.annotator === 'annotator1'),
+          annotator2: structures.find(s => s.title === type && s.annotator === 'annotator2')
+        }))
+      },
+
+      // Set current annotator mode
+      setCurrentAnnotator: (annotator) => {
+        set({ currentAnnotator: annotator }, false, 'setCurrentAnnotator')
+        console.log(`🔧 Current annotator set to: ${annotator}`)
+      },
+
+      // Toggle structure visibility
+      toggleStructureVisibility: (structureId) => {
+        set(
+          (state) => ({
+            structures: state.structures.map((s) =>
+              s.id === structureId ? { ...s, isVisible: !s.isVisible } : s
+            )
+          }),
+          false,
+          'toggleStructureVisibility'
+        )
+      },
+
+      // Set structure visibility
+      setStructureVisibility: (structureId, visible) => {
+        set(
+          (state) => ({
+            structures: state.structures.map((s) =>
+              s.id === structureId ? { ...s, isVisible: visible } : s
+            )
+          }),
+          false,
+          'setStructureVisibility'
+        )
       },
 
       // Reset to initial state

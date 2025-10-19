@@ -23,6 +23,7 @@ interface SliceViewProps {
   onPreviewCoordinateChange?: (coord: any) => void
   previewCoordinate?: any
   viewOnly?: boolean
+  ratingMode?: boolean
 }
 
 export function SliceView({ 
@@ -31,7 +32,8 @@ export function SliceView({
   onVoxelCoordsChange,
   onPreviewCoordinateChange,
   previewCoordinate: externalPreviewCoord,
-  viewOnly = false
+  viewOnly = false,
+  ratingMode = false,
 }: SliceViewProps) {
   // ========================
   // STORES
@@ -84,15 +86,17 @@ export function SliceView({
   // ========================
   const [, forceUpdate] = useReducer((x) => x + 1, 0)
 
-// Listen for mask updates and force re-render
-
+  // Listen for mask updates and force re-render
   const currentSlice = currentSlices[orientation]
-const viewState = viewStates[orientation]
-const slice = slices[currentSlice]
-// ========================
-// EFFECTS FIRST - BEFORE EARLY RETURN
-// ========================
-useEffect(() => {
+  const viewState = viewStates[orientation]
+  const slice = slices[currentSlice]
+
+  const maskOpacities = useMaskStore((state) => state.maskOpacity);
+
+  // ========================
+  // EFFECTS
+  // ========================
+  useEffect(() => {
     if (!slice?.canvas) return
     const dataUrl = slice.canvas.toDataURL("image/png")
     setCurrentSliceURL(dataUrl)
@@ -115,8 +119,8 @@ useEffect(() => {
     }
   }, [orientation])
 
-// Handle jump to coordinate - only update crosshair when on correct slice
-useEffect(() => {
+  // Handle jump to coordinate - only update crosshair when on correct slice
+  useEffect(() => {
     if (!jumpToCoord || !volumeData || !slice) {
       return
     }
@@ -185,28 +189,23 @@ useEffect(() => {
       pixelY
     })
   }, [jumpToCoord, volumeData, orientation, slice, currentSlice])
-// ========================
-// EARLY RETURN AFTER HOOKS
-// ========================
 
-if (!slice || !slice.canvas) {
-  return (
-    <div className="slice-placeholder">
-      <div className="loading-spinner"></div>
-      <span>Loading {orientation}</span>
-    </div>
-  )
-}
+  // ========================
+  // EARLY RETURN AFTER HOOKS
+  // ========================
+  if (!slice || !slice.canvas) {
+    return (
+      <div className="slice-placeholder">
+        <div className="loading-spinner"></div>
+        <span>Loading {orientation}</span>
+      </div>
+    )
+  }
 
-const dataUrl = slice.canvas.toDataURL()
-const actualWidth = slice.actualWidth || slice.width
-const actualHeight = slice.actualHeight || slice.height
-const crosshairColor = placementActive && placementColor ? placementColor : '#7ddb94'
-
-
-
-
-
+  const dataUrl = slice.canvas.toDataURL()
+  const actualWidth = slice.actualWidth || slice.width
+  const actualHeight = slice.actualHeight || slice.height
+  const crosshairColor = placementActive && placementColor ? placementColor : '#7ddb94'
 
   // ========================
   // HELPER FUNCTIONS
@@ -299,13 +298,11 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
     }
   }
 
-
   // ========================
   // MOUSE HANDLERS
   // ========================
-
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (viewOnly) return
+    if (viewOnly || ratingMode) return
     const target = e.target as HTMLElement
     if (target.closest('.slice-controls') || 
         target.closest('.zoom-controls') || 
@@ -341,7 +338,6 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
         lastPosRef.current = { x: pixelX, y: pixelY }
         
         drawAtPoint(pixelX, pixelY)
-        
         
         e.preventDefault()
         return
@@ -451,17 +447,20 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (viewOnly || ratingMode) return
+    
     console.log('🖱️ Mouse move - isDrawing:', isDrawing, 'activeStructure:', activeStructureId)
-    if (viewOnly && (isDrawing || isPanning)) return
+    
     // Mask editing
     if (activeStructureId && isDrawing && !placementActive) {
-        console.log('✏️ Drawing in progress!')
+      console.log('✏️ Drawing in progress!')
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
       
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
+
       
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const pixelX = Math.floor((x / imgRect.width) * slice.width)
@@ -503,6 +502,7 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
 
     // Hover crosshair for placement
     if (placementActive && !externalPreviewCoord) {
+      
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
       const imgRect = imgElement.getBoundingClientRect()
@@ -597,9 +597,10 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
   // ========================
   // CURSOR STYLE
   // ========================
-  
   let cursorStyle = 'default'
-  if (activeStructureId && !placementActive) {
+  if (ratingMode) {
+    cursorStyle = 'default'
+  } else if (activeStructureId && !placementActive) {
     cursorStyle = 'crosshair'
   } else if (placementActive && !externalPreviewCoord) {
     cursorStyle = 'crosshair'
@@ -612,92 +613,92 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
   // ========================
   // RENDER
   // ========================
-
+ 
+  
   return (
-   
-        <div
-          className="slice-viewer-container"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onWheel={handleWheel}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{ cursor: viewOnly ? 'default' : cursorStyle }}
-        >
-          {/* Placement Overlay - Hide in view-only */}
-          {!viewOnly && placementActive && !externalPreviewCoord && <PlacementOverlay />}
-          
-          {/* Preview Controls - Hide in view-only */}
-          {!viewOnly && externalPreviewCoord &&  placementActive && (
-            <PreviewControls
-              coordinate={externalPreviewCoord}
-              onSave={handleSaveCoordinate}
-              onCancel={handleCancelCoordinate}
-            />
-          )}
-        
-        <div className="slice-viewer-wrapper" style={{ overflow: 'hidden' }}>
-  {/* Pan Controls - Hide in view-only */}
-  {!viewOnly && viewState.scale > 1 && (
-    <>
-      <button className="pan-control pan-left"
-              onClick={(e) => { 
-                e.stopPropagation()
-                e.preventDefault()
-                handlePanDirection('left')
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-              }}
-            >
-              <FiChevronLeft size={20} />
-            </button>
-            <button 
-              className="pan-control pan-right"
-              onClick={(e) => { 
-                e.stopPropagation()
-                e.preventDefault()
-                handlePanDirection('right')
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-              }}
-            >
-              <FiChevronRight size={20} />
-            </button>
-            <button 
-              className="pan-control pan-up"
-              onClick={(e) => { 
-                e.stopPropagation()
-                e.preventDefault()
-                handlePanDirection('up')
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-              }}
-            >
-              <FiChevronUp size={20} />
-            </button>
-            <button 
-              className="pan-control pan-down"
-              onClick={(e) => { 
-                e.stopPropagation()
-                e.preventDefault()
-                handlePanDirection('down')
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-              }}
-            >
-              <FiChevronDown size={20} />
-            </button>
-          </>
-        )}
+    <div
+      className="slice-viewer-container"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      onWheel={handleWheel}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ cursor: viewOnly ? 'default' : cursorStyle }}
+    >
+      {/* Placement Overlay - Hide in view-only and rating mode */}
+      {!viewOnly && !ratingMode && placementActive && !externalPreviewCoord && <PlacementOverlay />}
+      
+      {/* Preview Controls - Hide in view-only and rating mode */}
+      {!viewOnly && !ratingMode && externalPreviewCoord && placementActive && (
+        <PreviewControls
+          coordinate={externalPreviewCoord}
+          onSave={handleSaveCoordinate}
+          onCancel={handleCancelCoordinate}
+        />
+      )}
+    
+      <div className="slice-viewer-wrapper" style={{ overflow: 'hidden' }}>
+        {/* Pan Controls - Hide in view-only and rating mode */}
+        {!viewOnly && !ratingMode && viewState.scale > 1 && (
+          <>
+            <button className="pan-control pan-left"
+                    onClick={(e) => { 
+                      e.stopPropagation()
+                      e.preventDefault()
+                      handlePanDirection('left')
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                    }}
+                  >
+                    <FiChevronLeft size={20} />
+                  </button>
+                  <button 
+                    className="pan-control pan-right"
+                    onClick={(e) => { 
+                      e.stopPropagation()
+                      e.preventDefault()
+                      handlePanDirection('right')
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                    }}
+                  >
+                    <FiChevronRight size={20} />
+                  </button>
+                  <button 
+                    className="pan-control pan-up"
+                    onClick={(e) => { 
+                      e.stopPropagation()
+                      e.preventDefault()
+                      handlePanDirection('up')
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                    }}
+                  >
+                    <FiChevronUp size={20} />
+                  </button>
+                  <button 
+                    className="pan-control pan-down"
+                    onClick={(e) => { 
+                      e.stopPropagation()
+                      e.preventDefault()
+                      handlePanDirection('down')
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                    }}
+                  >
+                    <FiChevronDown size={20} />
+                  </button>
+                </>
+              )}
 
         <div 
           className="slice-image-holder"
@@ -718,7 +719,7 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
                 opacity: settings.opacity,
                 width: `${actualWidth}px`,
                 height: `${actualHeight}px`,
-                imageRendering: 'pixelated',
+                
                 display: 'block',
                 pointerEvents: 'auto'
               }}
@@ -730,12 +731,13 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
               if (!visible) return null
               
               const structureId = parseInt(structureIdStr)
+              const maskOpacity = maskOpacities[structureId] ?? 0.5;
               const maskSlice = maskManager.getMaskSlice(structureId, orientation, currentSlice)
               if (!maskSlice) return null
               
               const structure = structures.find(s => s.id === structureId)
               const structureColor = structure?.color || '#7ddb94'
-              
+                            
               return (
                 <MaskOverlay
                   key={`mask-${structureId}-${orientation}`}
@@ -743,7 +745,7 @@ const crosshairColor = placementActive && placementColor ? placementColor : '#7d
                   width={actualWidth}
                   height={actualHeight}
                   color={structureColor}
-                  opacity={0.5}
+                  opacity={maskOpacity}
                   scale={viewState.scale}
                   offsetX={viewState.offsetX}
                   offsetY={viewState.offsetY}

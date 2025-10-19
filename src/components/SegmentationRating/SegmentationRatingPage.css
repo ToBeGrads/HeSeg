@@ -1,0 +1,521 @@
+/* src/components/SegmentationRating/SegmentationRatingPage.css */
+.segmentation-rating-page {
+    flex: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1a1a1a;
+    color: white;
+    overflow: hidden;
+  }
+  
+  /* Rating Controls Panel */
+  .rating-controls-panel {
+    padding: 1rem;
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  
+  .annotator-visibility {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .annotator-btn, .overlap-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 6px;
+    color: #ccc;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+  }
+  
+  .annotator-btn.active, .overlap-btn.active {
+    background: #7ddb94;
+    color: #1a1a1a;
+    border-color: #7ddb94;
+  }
+  
+  .annotator-btn:hover, .overlap-btn:hover {
+    background: #444;
+    border-color: #666;
+  }
+  
+  .view-mode-selector {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .view-mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 6px;
+    color: #ccc;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+  }
+  
+  .view-mode-btn.active {
+    background: #7ddb94;
+    color: #1a1a1a;
+    border-color: #7ddb94;
+  }
+  
+  .view-mode-btn:hover {
+    background: #444;
+    border-color: #666;
+  }
+  
+  /* Rating Content Layout */
+  .rating-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  .rating-viewer-section {
+    flex: 2;
+    padding: 1rem;
+    border-right: 1px solid #444;
+    min-width: 0;
+  }
+  
+  .rating-table-section {
+    flex: 1;
+    min-width: 500px;
+    max-width: 600px;
+    padding: 1rem;
+    overflow-y: auto;
+    background: #2a2a2a;
+  }
+  
+  .rating-table-container {
+    background: #333;
+    border-radius: 8px;
+    padding: 1rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .rating-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #444;
+  }
+  
+  .rating-table-header h3 {
+    margin: 0;
+    color: #7ddb94;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .slice-counter {
+    color: #ccc;
+    font-size: 0.9rem;
+    font-weight: normal;
+  }
+  
+  .orientation-selector {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .orientation-selector button {
+    padding: 0.25rem 0.75rem;
+    background: #444;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  
+  .orientation-selector button.active {
+    background: #7ddb94;
+    color: #1a1a1a;
+    border-color: #7ddb94;
+  }
+  
+  .orientation-selector button:hover {
+    background: #555;
+  }
+  
+  /* Rating Table */
+  .rating-table {
+    display: flex;
+    flex-direction: column;
+    background: #3a3a3a;
+    border-radius: 6px;
+    overflow: hidden;
+    flex: 1;
+  }
+  
+  .table-header, .table-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #444;
+  }
+  
+  .table-header {
+    background: #4a4a4a;
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #7ddb94;
+  }
+  
+  .table-row {
+    background: #3a3a3a;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  
+  .table-row:hover {
+    background: #444;
+  }
+  
+  .table-row.selected {
+    background: rgba(125, 219, 148, 0.1);
+    border-left: 3px solid #7ddb94;
+  }
+  
+  .structure-col {
+    flex: 2;
+    font-weight: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .structure-annotators {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .annotator-badge {
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: bold;
+  }
+  
+  .annotator-badge.a1 {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+  }
+  
+  .annotator-badge.a2 {
+    background: rgba(79, 195, 247, 0.2);
+    color: #4fc3f7;
+    border: 1px solid #4fc3f7;
+  }
+  
+  .rating-col, .status-col {
+    flex: 1;
+    text-align: center;
+  }
+  
+  .rating-btn {
+    width: 32px;
+    height: 32px;
+    border: 2px solid #555;
+    border-radius: 50%;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  
+  .rating-btn:not(:disabled):hover {
+    border-color: #7ddb94;
+    color: #7ddb94;
+  }
+  
+  .rating-btn.selected {
+    background: #7ddb94;
+    border-color: #7ddb94;
+    color: #1a1a1a;
+  }
+  
+  .rating-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  .rating-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  
+  .rating-status.annotator1 {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+  }
+  
+  .rating-status.annotator2 {
+    background: rgba(79, 195, 247, 0.2);
+    color: #4fc3f7;
+    border: 1px solid #4fc3f7;
+  }
+  
+  .rating-status.both {
+    background: rgba(125, 219, 148, 0.2);
+    color: #7ddb94;
+    border: 1px solid #7ddb94;
+  }
+  
+  .rating-status.neither {
+    background: rgba(204, 204, 204, 0.2);
+    color: #ccc;
+    border: 1px solid #ccc;
+  }
+  
+  .rating-status.unrated {
+    background: rgba(153, 153, 153, 0.2);
+    color: #999;
+    border: 1px solid #666;
+  }
+  
+  /* Rating List View */
+  .rating-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+  }
+  
+  .rating-list-item {
+    background: #3a3a3a;
+    border-radius: 6px;
+    padding: 1rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid #444;
+  }
+  
+  .rating-list-item:hover {
+    background: #444;
+    border-color: #555;
+  }
+  
+  .rating-list-item.selected {
+    background: rgba(125, 219, 148, 0.1);
+    border: 2px solid #7ddb94;
+  }
+  
+  .list-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  
+  .structure-name {
+    font-weight: 600;
+    color: #7ddb94;
+  }
+  
+  .annotator-badges {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .rating-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .rating-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #444;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ccc;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8rem;
+  }
+  
+  .rating-action-btn:hover:not(:disabled) {
+    background: #555;
+    border-color: #666;
+  }
+  
+  .rating-action-btn.selected {
+    background: #7ddb94;
+    border-color: #7ddb94;
+    color: #1a1a1a;
+  }
+  
+  .rating-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  .current-rating {
+    text-align: center;
+  }
+  
+  /* Rating Stats */
+  .rating-stats {
+    padding: 0.75rem 1rem;
+    background: #2a2a2a;
+    border-top: 1px solid #444;
+    display: flex;
+    gap: 2rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .stat-item span {
+    color: #ccc;
+  }
+  
+  .stat-item strong {
+    color: #7ddb94;
+  }
+  
+  /* Scrollbar styling */
+  .rating-table-section::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .rating-table-section::-webkit-scrollbar-track {
+    background: #2a2a2a;
+  }
+  
+  .rating-table-section::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+  }
+  
+  .rating-table-section::-webkit-scrollbar-thumb:hover {
+    background: #666;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .rating-content {
+      flex-direction: column;
+    }
+    
+    .rating-table-section {
+      min-width: 100%;
+      max-width: 100%;
+      max-height: 40vh;
+    }
+    
+    .rating-controls-panel {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+    
+    .annotator-visibility {
+      justify-content: center;
+    }
+    
+    .view-mode-selector {
+      justify-content: center;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .rating-table-header {
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+    
+    .orientation-selector {
+      justify-content: center;
+    }
+    
+    .rating-stats {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .table-header, .table-row {
+      padding: 0.5rem;
+      font-size: 0.8rem;
+    }
+    
+    .rating-btn {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .rating-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Add to SegmentationRatingPage.css */
+.rating-loading-state,
+.rating-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+  text-align: center;
+}
+
+.rating-loading-state p {
+  color: #7ddb94;
+  margin-bottom: 0.5rem;
+}
+
+.loading-subtitle {
+  color: #999 !important;
+  font-size: 0.9rem;
+}
+
+.rating-error-state p {
+  margin-bottom: 0.5rem;
+}

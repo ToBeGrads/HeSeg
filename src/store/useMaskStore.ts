@@ -10,6 +10,8 @@ interface MaskState {
   maskVisibility: Record<number, boolean>
   tool: Tool
   brushSize: number
+  maskOpacity: Record<number, number> 
+  
   
   // Actions
   setActiveStructure: (id: number | null) => void
@@ -17,12 +19,14 @@ interface MaskState {
   setMaskVisibility: (structureId: number, visible: boolean) => void
   setTool: (tool: Tool) => void
   setBrushSize: (size: number) => void
+  setMaskOpacity: (structureId: number, opacity: number) => void
   reset: () => void
 }
 
 const initialState = {
   activeStructureId: null,
   maskVisibility: {},
+  maskOpacity: {},
   tool: 'draw' as Tool,
   brushSize: BRUSH_SIZE.DEFAULT
 }
@@ -71,6 +75,14 @@ export const useMaskStore = create<MaskState>()(
           false,
           'setMaskVisibility'
         )
+      },
+      setMaskOpacity: (structureId, opacity) => {
+        set((state) => ({
+          maskOpacity: {
+            ...state.maskOpacity,
+            [structureId]: opacity
+          }
+        }), false, 'setMaskOpacity')
       },
 
       // Set drawing tool

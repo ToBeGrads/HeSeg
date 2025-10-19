@@ -13,9 +13,10 @@ import { useMaskStore } from '../store/useMaskStore'
 interface SidebarItemProps {
   structureId: number
   onAddCoordinate: () => void 
+  ratingMode?: boolean
 }
 
-function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
+function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemProps) {
   // ========================
   // GET STATE FROM STORES
   // ========================
@@ -31,6 +32,8 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
   const maskVisibility = useMaskStore((state) => state.maskVisibility)
   const activeStructureId = useMaskStore((state) => state.activeStructureId)
   const { toggleMaskVisibility, setActiveStructure } = useMaskStore()
+  const maskOpacity = useMaskStore((state) => state.maskOpacity[structureId] ?? 0.5)
+  const setMaskOpacity = useMaskStore((state) => state.setMaskOpacity)
   
   const { currentSliceURL } = useMRI()
 
@@ -65,9 +68,6 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
     setIsExpanded(!isExpanded)
   }
   
-  const handleGeminiAction = () => {
-    console.log(`Gemini action for ${title}`)
-  }
   
   const handleToggleMask = () => {
     console.log(`Toggle mask for structure ${structureId}`)
@@ -279,38 +279,57 @@ function SidebarItem({ structureId, onAddCoordinate }: SidebarItemProps) {
         </button>
         
         {/* Start Editing */}
-        <button 
-          className={`sidebar-item-btn ${isEditing ? 'active-editing' : ''}`}
-          onClick={handleStartEditing}
-          disabled={isEditing}
-          title={isEditing ? 'Editing...' : 'Edit mask'}
-          style={isEditing ? {
-            backgroundColor: `${color}55`,
-            color: color,
-            cursor: 'not-allowed'
-          } : {}}
-        >
-          <FiEdit2 />
-        </button>
+        {!ratingMode && (
+  <button 
+    className={`sidebar-item-btn ${isEditing ? 'active-editing' : ''}`}
+    onClick={handleStartEditing}
+    disabled={isEditing}
+    title={isEditing ? 'Editing...' : 'Edit mask'}
+    style={isEditing ? {
+      backgroundColor: `${color}55`,
+      color: color,
+      cursor: 'not-allowed'
+    } : {}}
+  >
+    <FiEdit2 />
+  </button>
+)}
+        {/* Opacity Slider */}
+        <div className="opacity-control">
+  <input
+    type="range"
+    min={0.1}
+    max={1}
+    step={0.01}
+    value={maskOpacity}
+    onChange={(e) => {
+      setMaskOpacity(structureId, Number(e.target.value));
+      const value = parseFloat(e.target.value);
+      e.target.style.background = `linear-gradient(90deg, #7ddb94 ${value * 100}%, #ccc ${value * 100}%)`;
+    }}
+    style={{
+      background: `linear-gradient(90deg, #7ddb94 ${maskOpacity * 100}%, #ccc ${maskOpacity * 100}%)`,
+    }}
+    title={`Opacity: ${Math.round(maskOpacity * 100)}%`} // Tooltip for better UX
+  />
+</div>
         
-        {/* Add Coordinate */}
-        <button 
-          className="sidebar-item-btn" 
-          onClick={onAddCoordinate}
-          title="Add coordinate"
-        >
-          +
-        </button>
       </div>
       
-      {isExpanded && (
+      {isExpanded && !ratingMode &&(
   <div className="coordinates-list">
     {/* Unsegmented Coordinates Section */}
     <div className="coordinates-section">
       <div className="coordinates-header">
         <span>Active Points ({coordinates.filter(c => !c.hasSegmentation).length})</span>
-        <button className="gen-btn" onClick={handleGeminiAction} title="Bulk actions">
-          <FiGrid size={16} />
+        {/* Add Coordinate */}
+        <button 
+          className="sidebar-item-btn add-cor"
+          
+          onClick={onAddCoordinate}
+          title="Add coordinate"
+        >
+          +
         </button>
       </div>
       

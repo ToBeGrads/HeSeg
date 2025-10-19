@@ -10,7 +10,10 @@ import { useStructureStore } from '../store/useStructureStore'
 import { usePlacementStore } from '../store/usePlacementStore'
 import { useVolumeStore } from '../store/useVolumeStore'
 
-function Sidebar() {
+interface SidebarProps {
+  ratingMode?: boolean 
+}
+function Sidebar({ ratingMode = false }: SidebarProps) {
   // ========================
   // GET STATE FROM STORES
   // ========================
@@ -89,6 +92,7 @@ function Sidebar() {
               key={structure.id}
               structureId={structure.id}
               onAddCoordinate={() => handleAddCoordinate(structure.id)}
+              ratingMode={ratingMode}
             />
           ))}
         </div>

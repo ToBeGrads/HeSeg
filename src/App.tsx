@@ -7,6 +7,8 @@ import Sidebar from './components/Sidebar'
 import MainContent from './components/MainContent'
 import { MRIProvider } from "./Context/MRIcontext"
 import './App.css'
+import SegmentationRatingPage from './components/SegmentationRating/SegmentationRatingPage'
+
 
 function RequireAuth({ token, children }: { token: string | null, children: React.ReactNode }) {
   const location = useLocation()
@@ -23,6 +25,18 @@ function MRIViewerLayout() {
         <div className="app-body">
           <Sidebar />
           <MainContent />
+        </div>
+      </div>
+    </MRIProvider>
+  )
+}
+function MRIRatingLayout(){
+  return (
+    <MRIProvider>
+      <div className="app">
+        <div className="app-body">
+          <Sidebar ratingMode={true}/>
+          <SegmentationRatingPage />
         </div>
       </div>
     </MRIProvider>
@@ -58,6 +72,9 @@ function App() {
             </RequireAuth>
           }
         />
+        // Add a route
+        // Add a route
+        <Route path="/rating" element={<MRIRatingLayout/>}/>
         <Route
           path="/viewer"
           element={

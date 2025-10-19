@@ -62,6 +62,9 @@
   outline: none;
   margin-left: 0.3rem;
 }
+.add-cor{
+  color:#fff
+}
 .sidebar-item-btn svg {
   width: 14px !important;
   height: 14px !important;
@@ -541,4 +544,52 @@
 .coordinate-item.has-segmentation {
   background-color: rgba(125, 219, 148, 0.08);
   border-left: 2px solid #7ddb94;
+}
+.opacity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.opacity-control input[type="range"] {
+  -webkit-appearance: none; /* Remove default styling */
+  appearance: none;
+  width: 50px; /* Adjust width */
+  height: 6px; /* Slightly thicker slider bar */
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.3s ease; /* Smooth transition for color changes */
+}
+
+.opacity-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; /* Slightly larger thumb */
+  height: 14px;
+  background: #7ddb94; /* Default thumb color */
+  border-radius: 50%; /* Circular thumb */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.opacity-control input[type="range"]::-webkit-slider-thumb:hover {
+  background: #4caf50; /* Change color on hover */
+}
+
+.opacity-control input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #7ddb94;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.opacity-control input[type="range"]::-moz-range-thumb:hover {
+  background: #4caf50;
 }
