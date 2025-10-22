@@ -195,6 +195,7 @@ function AdvancedMRIViewer() {
         {viewMode === 'single' && (
           <div className="single-view">
             <SliceView
+              // patient_id = {patient_id}
               orientation= "axial"
               slices={allSlices["axial"]}
               onVoxelCoordsChange={setVoxelCoords}
@@ -293,7 +294,7 @@ function AdvancedMRIViewer() {
 
       <div className="shortcuts-info">
         {activeStructureId
-          ? '✏️ Editing: D=Draw | E=Erase | Ctrl+Z=Undo | Ctrl+Y=Redo | Enter=Complete'
+          ? 'Editing: D=Draw | E=Erase | Ctrl+Z=Undo | Ctrl+Y=Redo | Enter=Complete'
           : 'Click: Crosshair | Right-Drag: Pan | Wheel: Navigate | Ctrl+Wheel: Zoom'
         }
       </div>

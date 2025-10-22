@@ -78,7 +78,7 @@ export const useViewerStore = create<ViewerState>()(
       // Set view mode
       setViewMode: (mode) => {
         set({ viewMode: mode }, false, 'setViewMode')
-        console.log(`🖥️ View mode: ${mode}`)
+        // console.log(`View mode: ${mode}`)
       },
 
       // Set current slice
@@ -124,7 +124,7 @@ export const useViewerStore = create<ViewerState>()(
           false,
           'resetViewState'
         )
-        console.log(` Reset view for ${orientation}`)
+        // console.log(`Reset view for ${orientation}`)
       },
 
       // Update setting
@@ -148,8 +148,8 @@ export const useViewerStore = create<ViewerState>()(
 
       // Jump to coordinate
 jumpToCoordinate: (coord) => {
-  console.log('Jumping to:', coord)
-  console.log('Setting slices:', { axial: coord.z, coronal: coord.y, sagittal: coord.x })
+  // console.log('Jumping to:', coord)
+  // console.log('Setting slices:', { axial: coord.z, coronal: coord.y, sagittal: coord.x })
   
   set((state) => ({ 
     jumpToCoord: coord,
@@ -162,7 +162,7 @@ jumpToCoordinate: (coord) => {
   
   // Log after update
   const newState = get()
-  console.log('Store updated. New slices:', newState.currentSlices)
+  // console.log('Store updated. New slices:', newState.currentSlices)
   
   // Auto-clear after processing
   setTimeout(() => {

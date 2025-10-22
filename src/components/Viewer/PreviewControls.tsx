@@ -8,7 +8,7 @@ interface PreviewControlsProps {
 }
 
 export function PreviewControls({ coordinate, onSave, onCancel }: PreviewControlsProps) {
-  // ✨ Get state directly from store
+  // Get state directly from store
   const { isEditing} = usePlacementStore()
 
   return (

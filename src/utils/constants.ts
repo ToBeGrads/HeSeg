@@ -6,7 +6,8 @@ export const AVAILABLE_COLORS = [
     '#F8B500', '#78E08F', '#3742FA', '#2ED573', '#FF6348',
     '#1E90FF', '#FF1493', '#00CED1', '#FFD700', '#32CD32',
     '#FF4500', '#DA70D6', '#40E0D0', '#FF69B4', '#00FF7F',
-    '#FF6347', '#4169E1', '#FF1493', '#00BFFF', '#ADFF2F'
+    '#FF6347', '#4169E1', '#FF1493', '#00BFFF', '#ADFF2F', 
+    "#11224E", "#F87B1B"
   ]
   export const DEFAULT_STRUCTURE_TITLES = [
     'Caudate Nucleus',

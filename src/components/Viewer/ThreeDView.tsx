@@ -41,7 +41,7 @@ export function ThreeDView() {
           niivueRef.current = nv
         }
       } catch (error) {
-        console.error('❌ Error initializing NiiVue:', error)
+        console.error('Error initializing NiiVue:', error)
       }
     }
 

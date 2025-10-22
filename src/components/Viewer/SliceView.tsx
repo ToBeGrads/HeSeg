@@ -13,10 +13,13 @@ import { useStructureStore } from '../../store/useStructureStore'
 import { usePlacementStore } from '../../store/usePlacementStore'
 import { useMaskStore } from '../../store/useMaskStore'
 import { useViewerStore } from '../../store/useViewerStore'
+import Axios from '../../utils/Axios'
+import { useAuth } from '../../hooks/useAuth'
 
 type Orientation = 'axial' | 'coronal' | 'sagittal'
 
 interface SliceViewProps {
+  // patient_id : string
   orientation: Orientation
   slices: any[]
   onVoxelCoordsChange?: (coords: { x: number; y: number; z: number }) => void
@@ -26,8 +29,8 @@ interface SliceViewProps {
   ratingMode?: boolean
 }
 
-export function SliceView({ 
-  orientation, 
+export function SliceView({
+  orientation,
   slices,
   onVoxelCoordsChange,
   onPreviewCoordinateChange,
@@ -41,7 +44,7 @@ export function SliceView({
   const volumeData = useVolumeStore((state) => state.volumeData)
   const structures = useStructureStore((state) => state.structures)
   const { addCoordinate } = useStructureStore()
-  
+
   const {
     active: placementActive,
     structureId: placementStructureId,
@@ -49,14 +52,14 @@ export function SliceView({
     isEditing: isEditingCoordinate,
     completePlacement
   } = usePlacementStore()
-  
+
   const {
     activeStructureId,
     maskVisibility,
     tool,
     brushSize
   } = useMaskStore()
-  
+
   const {
     currentSlices,
     viewStates,
@@ -77,7 +80,8 @@ export function SliceView({
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null)
   const [crosshairPos, setCrosshairPos] = useState({ x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 })
   const [hoverCrosshair, setHoverCrosshair] = useState<{ x: number; y: number } | null>(null)
-  
+  const { token } = useAuth()
+
   const lastPosRef = useRef<{ x: number; y: number } | null>(null)
   const hasHistorySaved = useRef(false)
 
@@ -103,18 +107,18 @@ export function SliceView({
   }, [slice, setCurrentSliceURL])
 
   useEffect(() => {
-    console.log('🎧 Setting up maskUpdated listener in SliceView')
-    
+    // console.log('Setting up maskUpdated listener in SliceView')
+
     const handleMaskUpdate = (structureId: number) => {
-      console.log('🔄 SliceView received maskUpdated for structure', structureId)
+      // console.log('SliceView received maskUpdated for structure', structureId)
       forceUpdate()
     }
-    
+
     maskManager.on('maskUpdated', handleMaskUpdate)
-    console.log('✅ Listener registered')
-    
+    // console.log('Listener registered')
+
     return () => {
-      console.log('🧹 Cleaning up listener')
+      // console.log('Cleaning up listener')
       maskManager.off('maskUpdated', handleMaskUpdate)
     }
   }, [orientation])
@@ -124,7 +128,7 @@ export function SliceView({
     if (!jumpToCoord || !volumeData || !slice) {
       return
     }
-  
+
     // Check if we're on the correct slice for this orientation
     let isCorrectSlice = false
     switch (orientation) {
@@ -138,22 +142,22 @@ export function SliceView({
         isCorrectSlice = currentSlice === jumpToCoord.x
         break
     }
-  
+
     // Only update crosshair if we're on the correct slice
     if (!isCorrectSlice) {
-      console.log(`⏳ ${orientation}: Waiting for correct slice. Current: ${currentSlice}, Target:`, 
-        orientation === 'axial' ? jumpToCoord.z : 
-        orientation === 'coronal' ? jumpToCoord.y : jumpToCoord.x)
+      // console.log(`${orientation}: Waiting for correct slice. Current: ${currentSlice}, Target:`, 
+      //   orientation === 'axial' ? jumpToCoord.z : 
+      //   orientation === 'coronal' ? jumpToCoord.y : jumpToCoord.x)
       return
     }
-  
-    console.log(`📍 ${orientation}: Processing jump to`, jumpToCoord)
-  
+
+    // console.log(`${orientation}: Processing jump to`, jumpToCoord)
+
     let normalizedX = 0.5
     let normalizedY = 0.5
     let pixelX = 0
     let pixelY = 0
-    
+
     switch (orientation) {
       case 'axial':
         normalizedX = jumpToCoord.x / volumeData.dims[0]
@@ -161,14 +165,14 @@ export function SliceView({
         pixelX = jumpToCoord.x
         pixelY = jumpToCoord.y
         break
-        
+
       case 'coronal':
         normalizedX = jumpToCoord.x / volumeData.dims[0]
         normalizedY = (volumeData.dims[2] - 1 - jumpToCoord.z) / volumeData.dims[2]
         pixelX = jumpToCoord.x
         pixelY = volumeData.dims[2] - 1 - jumpToCoord.z
         break
-        
+
       case 'sagittal':
         normalizedX = jumpToCoord.y / volumeData.dims[1]
         normalizedY = (volumeData.dims[2] - 1 - jumpToCoord.z) / volumeData.dims[2]
@@ -176,12 +180,12 @@ export function SliceView({
         pixelY = volumeData.dims[2] - 1 - jumpToCoord.z
         break
     }
-    
+
     normalizedX = Math.max(0, Math.min(1, normalizedX))
     normalizedY = Math.max(0, Math.min(1, normalizedY))
-    
-    console.log(`🎯 ${orientation}: Setting crosshair at pixel (${pixelX}, ${pixelY})`)
-    
+
+    // console.log(`${orientation}: Setting crosshair at pixel (${pixelX}, ${pixelY})`)
+
     setCrosshairPos({
       x: normalizedX,
       y: normalizedY,
@@ -210,13 +214,13 @@ export function SliceView({
   // ========================
   // HELPER FUNCTIONS
   // ========================
-  
+
   const drawAtPoint = (pixelX: number, pixelY: number) => {
     if (!activeStructureId || !volumeData) return
-  
+
     const value = tool === 'draw' ? 255 : 0
     let voxelX = 0, voxelY = 0, voxelZ = 0
-  
+
     switch (orientation) {
       case 'axial':
         voxelX = pixelX
@@ -234,7 +238,7 @@ export function SliceView({
         voxelZ = volumeData.dims[2] - 1 - pixelY
         break
     }
-    
+
     maskManager.updateMaskVoxel(activeStructureId, voxelX, voxelY, voxelZ, value, brushSize)
   }
 
@@ -270,14 +274,12 @@ export function SliceView({
     })
   }
 
-  const handleSaveCoordinate = () => {
+  const handleSaveCoordinate = async () => {
     if (!externalPreviewCoord || !placementStructureId) return
-
-    addCoordinate(placementStructureId, {
-      x: externalPreviewCoord.x,
-      y: externalPreviewCoord.y,
-      z: externalPreviewCoord.z
-    })
+    // here we upload the coordinates to the backend 
+    console.log("Storing the new coordinates in the database ...", externalPreviewCoord)
+    
+    addCoordinate(placementStructureId, externalPreviewCoord)
 
     onPreviewCoordinateChange?.(null)
     completePlacement()
@@ -304,60 +306,60 @@ export function SliceView({
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (viewOnly || ratingMode) return
     const target = e.target as HTMLElement
-    if (target.closest('.slice-controls') || 
-        target.closest('.zoom-controls') || 
-        target.closest('.dimension-info') || 
-        target.closest('.pixel-coords-info') ||
-        target.closest('.placement-overlay') ||
-        target.closest('.preview-controls-bottom') ||
-        target.closest('.pan-control')) {
+    if (target.closest('.slice-controls') ||
+      target.closest('.zoom-controls') ||
+      target.closest('.dimension-info') ||
+      target.closest('.pixel-coords-info') ||
+      target.closest('.placement-overlay') ||
+      target.closest('.preview-controls-bottom') ||
+      target.closest('.pan-control')) {
       return
     }
-  
+
     // Mask editing
     if (activeStructureId && !placementActive) {
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
-      
+
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
-      
+
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const pixelX = Math.floor((x / imgRect.width) * slice.width)
         const pixelY = Math.floor((y / imgRect.height) * slice.height)
-        
+
         maskManager.setCurrentSlice(activeStructureId, currentSlice)
-        
+
         if (!maskManager.canUndo(activeStructureId, currentSlice)) {
           maskManager.saveHistory(activeStructureId, currentSlice)
           hasHistorySaved.current = true
         }
-        
+
         setIsDrawing(true)
         lastPosRef.current = { x: pixelX, y: pixelY }
-        
+
         drawAtPoint(pixelX, pixelY)
-        
+
         e.preventDefault()
         return
       }
     }
-    
+
     if (e.button === 0) {
       e.preventDefault()
-      
+
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
       const imgRect = imgElement.getBoundingClientRect()
-      
+
       const clickX = e.clientX - imgRect.left
       const clickY = e.clientY - imgRect.top
 
       if (clickX < 0 || clickX > imgRect.width || clickY < 0 || clickY > imgRect.height) {
         return
       }
-      
+
       const normalizedX = clickX / imgRect.width
       const normalizedY = clickY / imgRect.height
 
@@ -389,7 +391,7 @@ export function SliceView({
             voxelX = currentSlices.sagittal
             break
         }
-        
+
         onPreviewCoordinateChange?.({
           x: voxelX,
           y: voxelY,
@@ -448,24 +450,24 @@ export function SliceView({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (viewOnly || ratingMode) return
-    
-    console.log('🖱️ Mouse move - isDrawing:', isDrawing, 'activeStructure:', activeStructureId)
-    
+
+    // console.log('Mouse move - isDrawing:', isDrawing, 'activeStructure:', activeStructureId)
+
     // Mask editing
     if (activeStructureId && isDrawing && !placementActive) {
-      console.log('✏️ Drawing in progress!')
+      // console.log('Drawing in progress!')
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
-      
+
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
 
-      
+
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const pixelX = Math.floor((x / imgRect.width) * slice.width)
         const pixelY = Math.floor((y / imgRect.height) * slice.height)
-        
+
         if (lastPosRef.current) {
           const dx = pixelX - lastPosRef.current.x
           const dy = pixelY - lastPosRef.current.y
@@ -478,7 +480,7 @@ export function SliceView({
             drawAtPoint(interpX, interpY)
           }
         }
-        
+
         lastPosRef.current = { x: pixelX, y: pixelY }
         e.preventDefault()
         return
@@ -502,7 +504,7 @@ export function SliceView({
 
     // Hover crosshair for placement
     if (placementActive && !externalPreviewCoord) {
-      
+
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
       const imgRect = imgElement.getBoundingClientRect()
@@ -530,7 +532,7 @@ export function SliceView({
       hasHistorySaved.current = false
       return
     }
-  
+
     if (isPanning) {
       setIsPanning(false)
       setPanStart(null)
@@ -563,30 +565,30 @@ export function SliceView({
       }
       return
     }
-  
+
     const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
     if (!imgElement) return
-    
+
     const imgRect = imgElement.getBoundingClientRect()
     const mouseX = e.clientX
     const mouseY = e.clientY
-    
+
     const isOverImage = (
       mouseX >= imgRect.left &&
       mouseX <= imgRect.right &&
       mouseY >= imgRect.top &&
       mouseY <= imgRect.bottom
     )
-    
+
     if (!isOverImage) return
-    
+
     if (e.ctrlKey || e.metaKey) {
       // Don't call preventDefault - just handle zoom
       const delta = e.deltaY > 0 ? -0.1 : 0.1
       handleZoom(delta)
       return
     }
-    
+
     if (!placementActive) {
       // Don't call preventDefault - just handle slice change
       const direction = e.deltaY > 0 ? 'next' : 'prev'
@@ -613,8 +615,8 @@ export function SliceView({
   // ========================
   // RENDER
   // ========================
- 
-  
+
+
   return (
     <div
       className="slice-viewer-container"
@@ -628,7 +630,7 @@ export function SliceView({
     >
       {/* Placement Overlay - Hide in view-only and rating mode */}
       {!viewOnly && !ratingMode && placementActive && !externalPreviewCoord && <PlacementOverlay />}
-      
+
       {/* Preview Controls - Hide in view-only and rating mode */}
       {!viewOnly && !ratingMode && externalPreviewCoord && placementActive && (
         <PreviewControls
@@ -637,70 +639,70 @@ export function SliceView({
           onCancel={handleCancelCoordinate}
         />
       )}
-    
+
       <div className="slice-viewer-wrapper" style={{ overflow: 'hidden' }}>
         {/* Pan Controls - Hide in view-only and rating mode */}
         {!viewOnly && !ratingMode && viewState.scale > 1 && (
           <>
             <button className="pan-control pan-left"
-                    onClick={(e) => { 
-                      e.stopPropagation()
-                      e.preventDefault()
-                      handlePanDirection('left')
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                    }}
-                  >
-                    <FiChevronLeft size={20} />
-                  </button>
-                  <button 
-                    className="pan-control pan-right"
-                    onClick={(e) => { 
-                      e.stopPropagation()
-                      e.preventDefault()
-                      handlePanDirection('right')
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                    }}
-                  >
-                    <FiChevronRight size={20} />
-                  </button>
-                  <button 
-                    className="pan-control pan-up"
-                    onClick={(e) => { 
-                      e.stopPropagation()
-                      e.preventDefault()
-                      handlePanDirection('up')
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                    }}
-                  >
-                    <FiChevronUp size={20} />
-                  </button>
-                  <button 
-                    className="pan-control pan-down"
-                    onClick={(e) => { 
-                      e.stopPropagation()
-                      e.preventDefault()
-                      handlePanDirection('down')
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                    }}
-                  >
-                    <FiChevronDown size={20} />
-                  </button>
-                </>
-              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                handlePanDirection('left')
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
+              <FiChevronLeft size={20} />
+            </button>
+            <button
+              className="pan-control pan-right"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                handlePanDirection('right')
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
+              <FiChevronRight size={20} />
+            </button>
+            <button
+              className="pan-control pan-up"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                handlePanDirection('up')
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
+              <FiChevronUp size={20} />
+            </button>
+            <button
+              className="pan-control pan-down"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                handlePanDirection('down')
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
+              <FiChevronDown size={20} />
+            </button>
+          </>
+        )}
 
-        <div 
+        <div
           className="slice-image-holder"
           style={{
             transform: `scale(${viewState.scale}) translate(${viewState.offsetX / viewState.scale}px, ${viewState.offsetY / viewState.scale}px)`,
@@ -719,7 +721,7 @@ export function SliceView({
                 opacity: settings.opacity,
                 width: `${actualWidth}px`,
                 height: `${actualHeight}px`,
-                
+
                 display: 'block',
                 pointerEvents: 'auto'
               }}
@@ -729,15 +731,15 @@ export function SliceView({
             {/* Mask Overlays */}
             {Object.entries(maskVisibility).map(([structureIdStr, visible]) => {
               if (!visible) return null
-              
+
               const structureId = parseInt(structureIdStr)
               const maskOpacity = maskOpacities[structureId] ?? 0.5;
               const maskSlice = maskManager.getMaskSlice(structureId, orientation, currentSlice)
               if (!maskSlice) return null
-              
+
               const structure = structures.find(s => s.id === structureId)
               const structureColor = structure?.color || '#7ddb94'
-                            
+
               return (
                 <MaskOverlay
                   key={`mask-${structureId}-${orientation}`}
@@ -758,7 +760,7 @@ export function SliceView({
               <div className="crosshair-overlay">
                 {hoverCrosshair ? (
                   <>
-                    <div 
+                    <div
                       style={{
                         position: 'absolute',
                         left: `${hoverCrosshair.x * actualWidth}px`,
@@ -770,7 +772,7 @@ export function SliceView({
                         opacity: 0.9
                       }}
                     />
-                    <div 
+                    <div
                       style={{
                         position: 'absolute',
                         left: 0,
@@ -800,8 +802,8 @@ export function SliceView({
                   </>
                 ) : (
                   <>
-                    <div 
-                      className="crosshair-horizontal" 
+                    <div
+                      className="crosshair-horizontal"
                       style={{
                         top: `${crosshairPos.y * actualHeight}px`,
                         position: 'absolute',

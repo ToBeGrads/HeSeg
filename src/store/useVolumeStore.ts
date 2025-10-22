@@ -37,7 +37,7 @@ export const useVolumeStore = create<VolumeState>()(
           console.log('Loading MRI volume from:', path)
           
           const possiblePaths = [
-            '../public/Data/MRI/brain_t2.nii',
+            path,
           ]
           
           let volume: VolumeData | null = null
@@ -45,7 +45,7 @@ export const useVolumeStore = create<VolumeState>()(
           
           for (const tryPath of possiblePaths) {
             try {
-              console.log(`🔍 Trying: ${tryPath}`)
+              // console.log(`Trying: ${tryPath}`)
               const loadedVolume = await MedicalImageLoader.loadNiftiVolume(tryPath)
               if (loadedVolume.dims.length === 3) {
                 volume = {
@@ -56,7 +56,7 @@ export const useVolumeStore = create<VolumeState>()(
                 throw new Error('Invalid volume dimensions. Expected 3 elements.')
               }
               loadedPath = tryPath
-              console.log(`✅ SUCCESS! Loaded from: ${loadedPath}`)
+              // console.log(`SUCCESS! Loaded from: ${loadedPath}`)
               break
             } catch (error) {
               console.warn(`Failed: ${tryPath}`)
@@ -69,9 +69,9 @@ export const useVolumeStore = create<VolumeState>()(
               false,
               'loadVolume/success'
             )
-            console.log('Volume loaded successfully!')
-            console.log('Volume dimensions:', volume.dims)
-            console.log('Value range:', volume.min, 'to', volume.max)
+            // console.log('Volume loaded successfully!')
+            // console.log('Volume dimensions:', volume.dims)
+            // console.log('Value range:', volume.min, 'to', volume.max)
           } else {
             throw new Error('No MRI file found. Please place brain.nii.gz in the public folder.')
           }

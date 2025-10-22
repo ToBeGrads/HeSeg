@@ -43,15 +43,15 @@ export interface Mask {
   
     emit(event: string, ...args: any[]): void {
       const handlers = this.events.get(event)
-      console.log('🔊 Emitting:', event, 'Listeners count:', handlers?.length || 0)
+      // console.log('Emitting:', event, 'Listeners count:', handlers?.length || 0)
       
       if (handlers) {
         handlers.forEach(handler => {
-          console.log('📤 Calling handler for', event)
+          // console.log('Calling handler for', event)
           handler(...args)
         })
       } else {
-        console.warn('⚠️ No handlers registered for event:', event)
+        console.warn('No handlers registered for event:', event)
       }
     }
   
@@ -70,7 +70,7 @@ export interface Mask {
     private currentSlice: Map<number, number> = new Map()
     private maxHistorySize = 50
     
-    async createMask(structureId: number, dims: [number, number, number]): Promise<Mask> {
+    async createMask(patient_id : string , structureId: number, dims: [number, number, number]): Promise<Mask> {
       const totalVoxels = dims[0] * dims[1] * dims[2]
       const mask: Mask = {
         id: Date.now(),
@@ -86,12 +86,13 @@ export interface Mask {
       this.currentSlice.set(structureId, 0)
       
       console.log(`Created mask for structure ${structureId}`, mask)
-      await saveMask(structureId, dims, mask.data)
+      
+      await saveMask(structureId,patient_id, dims, mask.data)
       return mask
     }
   
     async getMask(structureId: number): Promise<Mask | null> {
-      // 1️⃣ Check in-memory first
+      // Check in-memory first
       const mask = this.masks.get(structureId)
       if (mask) {
         return mask
@@ -102,13 +103,13 @@ export interface Mask {
       try {
         stored = await loadMask(structureId)
       } catch (err) {
-        console.error(`❌ Failed to load mask from DB for structure ${structureId}:`, err)
+        console.error(`Failed to load mask from DB for structure ${structureId}:`, err)
         return null
       }
     
       // If nothing in DB, return null
       if (!stored || !stored.data || !stored.dims || stored.dims.length !== 3) {
-        console.warn(`⚠️ No mask found for structure ${structureId}`)
+        console.warn(`No mask found for structure ${structureId}`)
         return null
       }
     
@@ -127,7 +128,7 @@ export interface Mask {
       this.sliceHistory.set(structureId, {})
       this.currentSlice.set(structureId, 0)
     
-      console.log(`✅ Loaded mask for structure ${structureId} from IndexedDB`)
+      // console.log(`Loaded mask for structure ${structureId} from IndexedDB`)
       this.emit('maskLoaded', structureId)
     
       return loadedMask
@@ -205,10 +206,10 @@ export interface Mask {
         sliceHist.currentIndex = sliceHist.entries.length - 1
       }
   
-      console.log(`💾 Saved history for structure ${structureId}, slice ${currentSliceIndex}, entries: ${sliceHist.entries.length}`)
+      // console.log(`Saved history for structure ${structureId}, slice ${currentSliceIndex}, entries: ${sliceHist.entries.length}`)
     }
   
-    undo(structureId: number, sliceIndex?: number): boolean {
+    undo(structureId: number, patient_id : string, sliceIndex?: number): boolean {
       const mask = this.masks.get(structureId)
       const history = this.sliceHistory.get(structureId)
       
@@ -218,7 +219,7 @@ export interface Mask {
       const sliceHist = history[currentSliceIndex]
   
       if (!sliceHist || sliceHist.currentIndex <= 0) {
-        console.log(`⚠️ Cannot undo: no history for slice ${currentSliceIndex}`)
+        // console.log(`Cannot undo: no history for slice ${currentSliceIndex}`)
         return false
       }
   
@@ -228,13 +229,13 @@ export interface Mask {
       this.setSliceData(structureId, currentSliceIndex, restoredData)
       sliceHist.currentIndex = newIndex
       
-      console.log(`↩️ Undo slice ${currentSliceIndex}, index: ${newIndex}`)
-      saveMask(structureId, mask.dims, mask.data)
+      // console.log(`Undo slice ${currentSliceIndex}, index: ${newIndex}`)
+      saveMask(structureId, patient_id, mask.dims, mask.data)
       this.emit('maskUpdated', structureId)
       return true
     }
   
-    redo(structureId: number, sliceIndex?: number): boolean {
+    redo(structureId: number, patient_id : string, sliceIndex?: number): boolean {
       const mask = this.masks.get(structureId)
       const history = this.sliceHistory.get(structureId)
       
@@ -244,7 +245,7 @@ export interface Mask {
       const sliceHist = history[currentSliceIndex]
   
       if (!sliceHist || sliceHist.currentIndex >= sliceHist.entries.length - 1) {
-        console.log(`⚠️ Cannot redo: no future history for slice ${currentSliceIndex}`)
+        // console.log(`Cannot redo: no future history for slice ${currentSliceIndex}`)
         return false
       }
   
@@ -254,7 +255,7 @@ export interface Mask {
       this.setSliceData(structureId, currentSliceIndex, restoredData)
       sliceHist.currentIndex = newIndex
       
-      saveMask(structureId, mask.dims, mask.data)
+      saveMask(structureId,patient_id, mask.dims, mask.data)
       this.emit('maskUpdated', structureId)
       return true
     }
@@ -281,6 +282,7 @@ export interface Mask {
   
     updateMaskVoxel(
       structureId: number,
+      patient_id : string,
       x: number,
       y: number,
       z: number,
@@ -310,8 +312,8 @@ export interface Mask {
         }
       }
   
-      console.log('📢 Emitting maskUpdated for structure', structureId)
-      saveMask(structureId, mask.dims, mask.data)
+      // console.log('Emitting maskUpdated for structure', structureId)
+      saveMask(structureId, patient_id, mask.dims, mask.data)
         
       this.emit('maskUpdated', structureId)
   

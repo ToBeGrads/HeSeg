@@ -9,39 +9,48 @@ import { useAppStore } from '../store/useAppStore'
 import { useStructureStore } from '../store/useStructureStore'
 import { usePlacementStore } from '../store/usePlacementStore'
 import { useVolumeStore } from '../store/useVolumeStore'
-
+import { useAuth } from '../hooks/useAuth'
+import Axios from '../utils/Axios'
+import { useLocation } from 'react-router-dom'
 interface SidebarProps {
-  ratingMode?: boolean 
+  ratingMode?: boolean
 }
 function Sidebar({ ratingMode = false }: SidebarProps) {
   // ========================
   // GET STATE FROM STORES
   // ========================
   const { sidebarVisible, toggleSidebar } = useAppStore()
-  const structures = useStructureStore((state) => state.structures)
-  const { addStructure } = useStructureStore()
+  // const structures = useStructureStore((state) => state.structures)
+  const mystructures = useStructureStore((state) => state.mystructures)
+  const { addStructure, fetchMyStructures } = useStructureStore()
   const { startPlacement } = usePlacementStore()
   const volumeData = useVolumeStore((state) => state.volumeData)
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false)
-  
+  const location = useLocation();
+  const { patient_id } = location.state || {};
   // ========================
   // EFFECTS
   // ========================
-  
+  // fetch the structures that the doc is using 
+  const { token } = useAuth()
+  useEffect(() => {
+    fetchMyStructures(token!, patient_id)
+  }, [token])
   // Initialize masks when volume data loads (we did it here becuase we have some predefined structures)
   useEffect(() => {
     if (volumeData && volumeData.dims) {
-      console.log('🎭 Volume loaded, initializing masks')
-      
-      structures.forEach(async structure => {
+      // console.log('Volume loaded, initializing masks')
+      mystructures.forEach(async structure => {
         if (!await maskManager.getMask(structure.id)) {
-          console.log(`📝 Creating mask for structure ${structure.id}`)
-          maskManager.createMask(structure.id, volumeData.dims)
+          // console.log(`Creating mask for structure ${structure.id}`)
+          // get patient id from localstorage
+          const patient_id = localStorage.getItem("selected_patient")!
+          maskManager.createMask(patient_id, structure.id, volumeData.dims)
         }
       })
     }
-  }, [volumeData, structures])
+  }, [volumeData, mystructures])
 
   // ========================
   // HANDLERS
@@ -51,25 +60,27 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
     setIsModalOpen(true)
   }
 
-  const handleAddNewStructure = (title: string, color: string) => {
-    addStructure(title, color)
+  const handleAddNewStructure = (id: number, title: string, color: string) => {
+    addStructure(id, title, color)
     setIsModalOpen(false)
   }
 
   const handleAddCoordinate = (structureId: number) => {
-    const structure = structures.find(s => s.id === structureId)
+    const structure = mystructures.find(s => s.id === structureId)
     if (structure) {
-      console.log(`Starting placement for structure ${structureId}`)
+      // console.log(`Starting placement for structure ${structureId}`)
+      // add the point/coordinates to the backend 
+
       startPlacement(structureId, structure.color)
     }
   }
-  
-  const existingColors = structures.map(structure => structure.color)
-  
+
+  const existingColors = mystructures.map(mystructures => mystructures.color)
+
   // ========================
   // RENDER
   // ========================
-  
+
   return (
     <>
       <aside className={`sidebar ${sidebarVisible ? 'visible' : 'hidden'}`}>
@@ -78,16 +89,16 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
             {sidebarVisible ? <FiChevronLeft size={18} /> : <FiChevronRight size={18} />}
           </button>
         </div>
-        
+
         <div className='sidebar-header'>
           <h5>Structures</h5>
           <button className="add-st" onClick={handleAddStructure}>
             +
           </button>
         </div>
-        
+
         <div className='sidebar-content'>
-          {structures.map(structure => (
+          {mystructures.map(structure => (
             <SidebarItem
               key={structure.id}
               structureId={structure.id}
@@ -97,7 +108,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
           ))}
         </div>
       </aside>
-      
+
       <AddStructureModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { FiX } from 'react-icons/fi'
 import './AddStructureModal.css'
 import { AVAILABLE_COLORS, DEFAULT_STRUCTURE_TITLES } from '../utils/constants'
+import { useAuth } from '../hooks/useAuth'
+import { useEffect } from 'react'
+import { useStructureStore } from '../store/useStructureStore'
 
 interface AddStructureModalProps {
   isOpen: boolean
   onClose: () => void
-  onAdd: (title: string, color: string) => void
+  onAdd: (id: number, title: string, color: string) => void
   existingColors: string[]
   existingTitles?: string[] // ✅ Added this prop
 }
@@ -18,11 +21,22 @@ function AddStructureModal({
   existingColors,
   existingTitles = []
 }: AddStructureModalProps) {
+
+  const structures = useStructureStore((state) => state.structures)
   // Filter out already added titles
-  const availableTitles = DEFAULT_STRUCTURE_TITLES.filter(t => !existingTitles.includes(t))
+  const { fetchStructures } = useStructureStore()
+  const { token } = useAuth()
+  useEffect(() => {
+    if (token) fetchStructures(token)
+  }, [token])
+
+  const availableTitles = structures.map(s => s.title);
+  const availableIDs = structures.map(s => s.id); // the ids of the structures fetched from the backend
+
 
   const [selectedTitle, setSelectedTitle] = useState(availableTitles[0] || '')
   const [selectedColor, setSelectedColor] = useState('')
+  const [selectedID, setSelectedID] = useState(availableIDs[0])
   const [error, setError] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -38,7 +52,8 @@ function AddStructureModal({
       return
     }
 
-    onAdd(selectedTitle, selectedColor)
+    onAdd(selectedID, selectedTitle, selectedColor)
+    console.log("from inside add structure handle submit")
     setSelectedTitle(availableTitles[0] || '')
     setSelectedColor('')
     setError('')
@@ -71,7 +86,12 @@ function AddStructureModal({
             <select
               id="structure"
               value={selectedTitle}
-              onChange={(e) => setSelectedTitle(e.target.value)}
+              onChange={(e) => {
+                setSelectedTitle(e.target.value)
+                const id = structures.find(s => s.title === e.target.value)!.id;
+                setSelectedID(id);
+              }
+              }
               disabled={availableTitles.length === 0}
               className="title-input"
             >
@@ -100,7 +120,13 @@ function AddStructureModal({
                     type="button"
                     className={`color-option ${isSelected ? 'selected' : ''} ${isUsed ? 'disabled' : ''}`}
                     style={{ backgroundColor: color }}
-                    onClick={() => !isUsed && setSelectedColor(color)}
+                    onClick={() => {
+                      if (!isUsed) {
+                        setSelectedColor(color);
+                        localStorage.setItem('color', color);
+                      }
+                    }}
+
                     disabled={isUsed}
                     title={isUsed ? 'Color already in use' : `Select ${color}`}
                   >
@@ -122,8 +148,8 @@ function AddStructureModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }
 

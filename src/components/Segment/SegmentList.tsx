@@ -1,49 +1,58 @@
 import { FaChevronLeft } from "react-icons/fa"
 import { useNavigate } from 'react-router-dom'
 import './SegmentList.css'
+import { useEffect, useState } from "react"
+import Axios from "../../utils/Axios"
+import { useAuth } from "../../hooks/useAuth"
 
-const dummyCases = [
-  {
-    name: "John Doe",
-    sex: "M",
-    age: 34,
-    modality: "T1",
-    dimension: "256×256×150",
-    status: "Finished"
-  },
-  {
-    name: "Jane Smith",
-    sex: "F",
-    age: 29,
-    modality: "T2",
-    dimension: "192×192×120",
-    status: "Not Yet"
-  },
-  {
-    name: "Alex Kim",
-    sex: "M",
-    age: 41,
-    modality: "FLAIR",
-    dimension: "128×128×90",
-    status: "Finished"
-  },
-  {
-    name: "Sara Lee",
-    sex: "F",
-    age: 22,
-    modality: "T1",
-    dimension: "256×256×160",
-    status: "Not Yet"
-  }
-]
+
+
 
 export default function SegmentList({ onReturn }: { onReturn: () => void }) {
-  const navigate = useNavigate()
+  const [data, setData] = useState([
+    {
+      patient_id : "PID_100",
+      sex: 'male',
+      age: '60',
+      mri_path: '',
+      status: "Unfinished"
+    }
+  ])
+  const { token } = useAuth();
+  // add useEffect to render the mist of MRI images for the doctor 
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await Axios.get("segment/MRI_List_For_Segment", {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+        if (res.status == 200) {
+          setData(res.data["mris"])
+          console.log(res.data["mris"])
+        }
+      } catch (err) {
+        console.error("Error fetching:", err);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+// handling clikcin g on of the elements on the list 
+const navigate = useNavigate()
+const handle = (patient_id : string, mri_path : string) =>{
+  localStorage.setItem("selected_patient", patient_id)
+  navigate('/viewer', { state: { path: "http://127.0.0.1:8000" + mri_path , patient_id : patient_id}})
+
+}
+
   return (
     <div className="segment-list-container">
       <div className='segment-header'>
         <button className="segment-return-btn" onClick={() => navigate('main')}>
-          <FaChevronLeft size={16}/>
+          <FaChevronLeft size={16} />
         </button>
         <h2>Segment Cases</h2>
         <span></span>
@@ -52,28 +61,22 @@ export default function SegmentList({ onReturn }: { onReturn: () => void }) {
         <table className="segment-table">
           <thead>
             <tr>
-              <th>Name</th>
               <th>Sex</th>
               <th>Age</th>
-              <th>Modality</th>
-              <th>Dimension</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {dummyCases.map((c, i) => (
-             <tr
-             key={i}
-             style={{ cursor: 'pointer' }}
-             onClick={() => navigate(`/viewer`)} 
-           >
-                <td>{c.name}</td>
+            {data.map((c, i) => (
+              <tr
+                key={i}
+                style={{ cursor: 'pointer' }}
+                onClick={() => handle(c.patient_id, c.mri_path)}
+              >
                 <td>{c.sex}</td>
                 <td>{c.age}</td>
-                <td>{c.modality}</td>
-                <td>{c.dimension}</td>
                 <td>
-                  <span className={`segment-status ${c.status === "Finished" ? "finished" : "notyet"}`}>
+                  <span className={`segment-status ${c.status}`}>
                     {c.status}
                   </span>
                 </td>

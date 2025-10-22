@@ -24,7 +24,7 @@ export function useSliceExtraction() {
     const extractAllSlices = async () => {
       setLoading(true)
       try {
-        console.log('📸 Extracting slices...')
+        // console.log(' Extracting slices...')
         
         const axialSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'axial')
         const coronalSlices = MedicalImageLoader.getSlicesByOrientation(volumeData, 'coronal')
@@ -63,9 +63,9 @@ export function useSliceExtraction() {
         setCurrentSlice('coronal', midCoronal)
         setCurrentSlice('sagittal', midSagittal)
 
-        console.log('✅ Slices extracted')
+        // console.log('Slices extracted')
       } catch (error) {
-        console.error('❌ Error extracting slices:', error)
+        console.error('Error extracting slices:', error)
       } finally {
         setLoading(false)
       }

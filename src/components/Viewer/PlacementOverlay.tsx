@@ -2,14 +2,14 @@
 import { usePlacementStore } from '../../store/usePlacementStore'
 
 export function PlacementOverlay() {
-  // ✨ Get state directly from store
+  // Get state directly from store
   const { isEditing, cancelPlacement } = usePlacementStore()
 
   return (
     <div className="placement-overlay">
       <div className="placement-message">
         {isEditing
-          ? '✏️ Edit Mode: Click new position'
+          ? 'Edit Mode: Click new position'
           : 'Click to select point'}
       </div>
       <button

@@ -23,7 +23,7 @@ export interface VolumeData {
 export class MedicalImageLoader {
   static async loadNiftiVolume(filePath: string): Promise<VolumeData> {
     try {
-      console.log('🔄 Loading NIfTI file:', filePath);
+      // console.log('Loading NIfTI file:', filePath);
       
       const nvImage = await NVImage.loadFromUrl({ url: filePath });
       
@@ -31,9 +31,9 @@ export class MedicalImageLoader {
         throw new Error('Failed to load NIfTI image - no image data');
       }
       
-      console.log('✅ NIfTI loaded successfully');
-      console.log('  Header dims:', nvImage.hdr?.dims);
-      console.log('  Datatype:', nvImage.hdr?.datatypeCode);
+      // console.log('NIfTI loaded successfully');
+      // console.log('  Header dims:', nvImage.hdr?.dims);
+      // console.log('  Datatype:', nvImage.hdr?.datatypeCode);
       
       const dims = nvImage.hdr?.dims?.slice(1, 4) || [256, 256, 180];
       const voxelSize = nvImage.hdr?.pixDims?.slice(1, 4) || [1, 1, 1];
@@ -41,7 +41,7 @@ export class MedicalImageLoader {
       const scl_slope = nvImage.hdr?.scl_slope || 1;
       const scl_inter = nvImage.hdr?.scl_inter || 0;
       
-      console.log('  Scaling: slope =', scl_slope, ', intercept =', scl_inter);
+      // console.log('scaling: slope =', scl_slope, ', intercept =', scl_inter);
       
       // BRAINCHOP METHOD: Calculate min/max from actual data
       let min = Infinity;
@@ -56,9 +56,9 @@ export class MedicalImageLoader {
         }
       }
       
-      console.log('📊 Volume info:');
-      console.log('  Dimensions:', dims);
-      console.log('  Value Range:', [min, max]);
+      // console.log('Volume info:');
+      // console.log('  Dimensions:', dims);
+      // console.log('  Value Range:', [min, max]);
       
       return {
         nvImage,
@@ -70,7 +70,7 @@ export class MedicalImageLoader {
         scl_inter
       };
     } catch (error) {
-      console.error('❌ Error loading NIfTI file:', error);
+      console.error('Error loading NIfTI file:', error);
       throw error;
     }
   }
@@ -84,7 +84,7 @@ export class MedicalImageLoader {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${depth} axial slices (${cols}x${rows})`);
+    // console.log(`Extracting ${depth} axial slices (${cols}x${rows})`);
     
     const sliceSize = cols * rows;
     
@@ -115,7 +115,7 @@ export class MedicalImageLoader {
       });
     }
     
-    console.log(`✅ Extracted ${slices.length} axial slices`);
+    // console.log(`Extracted ${slices.length} axial slices`);
     return slices;
   }
 
@@ -128,7 +128,7 @@ export class MedicalImageLoader {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${rows} coronal slices (${cols}x${depth})`);
+    // console.log(`Extracting ${rows} coronal slices (${cols}x${depth})`);
     
     const sliceSize = cols * rows;
     
@@ -158,7 +158,7 @@ export class MedicalImageLoader {
       });
     }
     
-    console.log(`✅ Extracted ${slices.length} coronal slices`);
+    // console.log(`Extracted ${slices.length} coronal slices`);
     return slices;
   }
 
@@ -171,7 +171,7 @@ export class MedicalImageLoader {
       throw new Error('No image data available');
     }
     
-    console.log(`📸 Extracting ${cols} sagittal slices (${rows}x${depth})`);
+    // console.log(`Extracting ${cols} sagittal slices (${rows}x${depth})`);
     
     const sliceSize = cols * rows;
     
@@ -201,7 +201,7 @@ export class MedicalImageLoader {
       });
     }
     
-    console.log(`✅ Extracted ${slices.length} sagittal slices`);
+    // console.log(`Extracted ${slices.length} sagittal slices`);
     return slices;
   }
 

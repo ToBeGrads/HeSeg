@@ -2,17 +2,19 @@
 import { useEffect } from 'react'
 import './MainContent.css'
 import AdvancedMRIViewer from './Viewer/AdvancedMRIViewer'
-import { useVolumeStore } from '../store/useVolumeStore' // ✨ NEW
-import { useAppStore } from '../store/useAppStore' // ✨ NEW
-
+import { useVolumeStore } from '../store/useVolumeStore' 
+import { useAppStore } from '../store/useAppStore' 
+import { useLocation } from 'react-router-dom'
 function MainContent() {
-  // ✨ Get state from stores
+  //  Get state from stores
   const { volumeData, loading, error, loadVolume } = useVolumeStore()
   const appLoading = useAppStore((state) => state.loading)
 
   // Load volume on mount
+  const location = useLocation();
+  const { path } = location.state || {}
   useEffect(() => {
-    loadVolume()
+    loadVolume(path)
   }, [loadVolume])
 
   // Loading state
