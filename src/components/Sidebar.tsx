@@ -36,7 +36,9 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
   const { token } = useAuth()
   useEffect(() => {
     fetchMyStructures(token!, patient_id)
-  }, [token])
+    // load the masks 
+}, [])
+  // }, [token])
   // Initialize masks when volume data loads (we did it here becuase we have some predefined structures)
   useEffect(() => {
     if (volumeData && volumeData.dims) {
@@ -69,8 +71,6 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
     const structure = mystructures.find(s => s.id === structureId)
     if (structure) {
       // console.log(`Starting placement for structure ${structureId}`)
-      // add the point/coordinates to the backend 
-
       startPlacement(structureId, structure.color)
     }
   }
@@ -104,6 +104,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
               structureId={structure.id}
               onAddCoordinate={() => handleAddCoordinate(structure.id)}
               ratingMode={ratingMode}
+              titre={structure.title}
             />
           ))}
         </div>

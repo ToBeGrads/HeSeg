@@ -6,9 +6,10 @@ import { DEFAULT_STRUCTURES } from '../utils/constants'
 import { maskManager } from '../utils/MaskManager'
 import { useVolumeStore } from '../store/useVolumeStore'
 import Axios from '../utils/Axios'
+import { AddCoordinates, AddStructure, GetMyStructures } from '../utils/functionalities'
 
 // Extended Structure type with annotator support
-interface ExtendedStructure extends Structure {
+export interface ExtendedStructure extends Structure {
   annotator?: 'annotator1' | 'annotator2'
   createdAt?: Date
   isVisible?: boolean
@@ -67,69 +68,61 @@ export const useStructureStore = create<StructureState>()(
           isVisible: true
         }
 
-        // try {
-        //   // Upload the new structure to the backend
-        //   const res = await Axios.post(
-        //     "segment/Addstructure",
-        //     {
-        //       patient_id: localStorage.getItem('selected_patient'),
-        //       structure: newStructure
-        //     },
-        //     {
-        //       headers: {
-        //         Authorization: `Bearer ${localStorage.getItem('jwt')}`
-        //       }
-        //     }
-        //   )
-        //   if (res.status === 200) {
-        //     console.log('Structure uploaded successfully:', res.data)
-        //     // Update local state only after successful upload
-        //     set(
-        //       (state) => ({
-        //         mystructures: [...state.mystructures, newStructure]
-        //       }),
-        //       false,
-        //       'addStructure'
-        //     )
-        // if (volumeData) {
-        //   const patient_id = localStorage.getItem('selected_patient')!
-        //   maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
-        // }
-        //   } else {
-        //     console.error('Unexpected response when adding structure:', res)
-        //   }
-        // } catch (err) {
-        //   console.error('Error adding structure:', err)
-        // }
-        set(
-          (state) => {
-            const exists = state.mystructures.some(
-              (s) => s.id === newStructure.id && s.title === newStructure.title
-            );
+        try {
+          // Upload the new structure to the backend
+          const res = await AddStructure(newStructure)
+          if (res.status === 200) {
+            console.log('Structure uploaded successfully:', res.data)
+            // Update local state only after successful upload
+            // if(res.data.message == "it Already exists!"){
+            // set(
+            //   (state) => ({
+            //     mystructures: [...state.mystructures, newStructure]
+            //   }),
+            //   false,
+            //   'addStructure'
+            // )
+            // }
+            set(
+              (state) => ({
+                mystructures: [...state.mystructures, newStructure]
+              }),
+              false,
+              'addStructure'
+            )
+        if (volumeData) {
+          const patient_id = localStorage.getItem('selected_patient')!
+          maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
+        }
+          } else {
+            console.error('Unexpected response when adding structure:', res)
+          }
+        } catch (err) {
+          console.error('Error adding structure:', err)
+        }
+        // set(
+        //   (state) => {
+        //     const exists = state.mystructures.some(
+        //       (s) => s.id === newStructure.id && s.title === newStructure.title
+        //     );
 
-            if (exists) {
-              console.log("Structure already exists, skipping add:", newStructure);
-              return state; // return unchanged state
-            }
-            return {
-              mystructures: [...state.mystructures, newStructure]
-            };
-          },
-          false,
-          'addStructure'
-        );
+        //     if (exists) {
+        //       console.log("Structure already exists, skipping add:", newStructure);
+        //       return state; // return unchanged state
+        //     }
+        //     return {
+        //       mystructures: [...state.mystructures, newStructure]
+        //     };
+        //   },
+        //   false,
+        //   'addStructure'
+        // );
+
         // Create mask in maskManager if volume data exists
         if (volumeData) {
           const patient_id = localStorage.getItem('selected_patient')!
           maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
         }
-
-      },
-
-      // fetch coordinates of structure
-      fetchCoordinates: async (token) => {
-
-
 
       },
       //fetch the structures from the backend 
@@ -148,6 +141,11 @@ export const useStructureStore = create<StructureState>()(
             }))
             set({ structures })
             console.log('Structures loaded:', res.data.structures)
+          }else if(res.status == 400) {
+            console.log(res.data.message)
+          }
+          else{
+            console.log(res.data.message)
           }
         } catch (err) {
           console.error('Error fetching structures:', err)
@@ -158,26 +156,23 @@ export const useStructureStore = create<StructureState>()(
         console.log("loading the structures the doctor is labeling for the patient", token, patient_id)
 
         try {
-          const res = await Axios.post('segment/mystructures',
-            { patient_id },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            }
-          )
+          const res = await GetMyStructures(token, patient_id)
 
-          if (res.status === 200 && Array.isArray(res.data.mystructures)) {
+        if (res.status === 200 && Array.isArray(res.data.mystructures)) {
             console.log("this what front see from my structures", res.data)
+            if(res.data.mystructures){
             const mystructures = res.data.mystructures.map((structure: any) => ({
               id: structure.structure_id,
               title: structure.structure_title,
               color: structure.structure_color,
-              coordinates: structure.coordinates || []
+              coordinates: structure.coordinates || [], 
             }))
             set({ mystructures })
             console.log('Structures loaded for the doctor-patient:', res.data.structures)
-          } else {
+          }else{
+            console.log("this doctors did not start annotation yet")
+          }
+        } else {
 
             console.log("this what front see from my structures", res.data)
           }
@@ -218,19 +213,7 @@ export const useStructureStore = create<StructureState>()(
       // Add coordinate to structure
       addCoordinate: async (structureId, coordinate) => {
         try {
-          const res = await Axios.post(
-            "segment/AddCoordinates",
-            {
-              coordinates: coordinate,
-              structure_id: structureId,
-              patient_id: localStorage.getItem("selected_patient")
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem('jwt')}`
-              }
-            }
-          );
+          const res = await AddCoordinates(coordinate, structureId)
           console.log("from add coordinates", res.data)
           if (res.status == 200) {
             console.log(res.data.message)

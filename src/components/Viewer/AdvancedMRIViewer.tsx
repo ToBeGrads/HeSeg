@@ -31,7 +31,7 @@ function AdvancedMRIViewer() {
   // STORES
   // ========================
   const volumeData = useVolumeStore((state) => state.volumeData)
-  const structures = useStructureStore((state) => state.structures)
+  const structures = useStructureStore((state) => state.mystructures)
   
   const {
     structureId: placementStructureId
@@ -109,9 +109,9 @@ function AdvancedMRIViewer() {
   }, [allSlices, currentSlices, volumeData, setCurrentSlice])
 
   const handleStopEditing = useCallback(() => {
+    
     setActiveStructure(null)
-    
-    
+
   }, [setActiveStructure])
 
   const handleUndo = () => {

@@ -8,15 +8,17 @@ import { maskManager } from "../utils/MaskManager"
 import { useViewerStore } from '../store/useViewerStore'
 import { useStructureStore } from '../store/useStructureStore'
 import { useMaskStore } from '../store/useMaskStore'
+import { segment } from '../utils/functionalities'
 
 
 interface SidebarItemProps {
   structureId: number
   onAddCoordinate: () => void
   ratingMode?: boolean
+  titre : string
 }
 
-function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemProps) {
+function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: SidebarItemProps) {
   // ========================
   // GET STATE FROM STORES
   // ========================
@@ -101,7 +103,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
 
   const confirmDelete = (index: number) => {
     // console.log(`Deleting coordinate ${index} from structure ${structureId}`)
-    // here delete from the backend
+    // here delete from the backend using update coordinates
     const newCoordinates = coordinates.filter((_, i) => i !== index)
     updateCoordinates(structureId, newCoordinates)
     setDeleteConfirmIndex(null)
@@ -116,9 +118,9 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
     setLoadingIndex(index)
 
     try {
-      // console.log(`Generating mask for coordinate ${index}`)
+      console.log(`Generating mask for coordinate ${index}`)
       const coord = coordinates[index]
-      // console.log('Jumping to coordinate before generating:', coord)
+      console.log('Jumping to coordinate before generating:', coord)
       jumpToCoordinate(coord)
 
       if (!currentSliceURL) {
@@ -127,17 +129,17 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
         setLoadingIndex(null)
         return
       }
-      // console.log(`Coordinate: x=${coord.x}, y=${coord.y}, z=${coord.z}`)
-      const response = await Axios.post("/segment/", {
-        coords: coord,
-        file: currentSliceURL,
-      })
+      console.log(`Coordinate: x=${coord.x}, y=${coord.y}, z=${coord.z}`)
+      
+      const response = await segment(coord,currentSliceURL)
+      // update the coordinates of the point to hasSegmentation True
+      console.log("the response from segment", response.data)
 
-      if (response.data?.success && response.data.mask) {
-        // console.log("Received mask from backend")
-        // console.log("Mask shape:", response.data.mask_shape)
+      if (response.status == 200 && response.data.mask) {
+        console.log("Received mask from backend")
+        console.log("Mask shape:", response.data.mask_shape)
         const existingMask = await maskManager.getMask(structureId)
-        // console.log("Existing mask:", existingMask)
+        console.log("Existing mask:", existingMask)
 
         if (!existingMask) {
           console.error("No mask exists for structure", structureId)
@@ -146,7 +148,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
           return
         }
 
-        // console.log("Volume dimensions:", existingMask.dims)
+        console.log("Volume dimensions:", existingMask.dims)
 
         // Decode base64 mask
         const maskBase64 = response.data.mask.split(',')[1]
@@ -161,7 +163,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
         img.src = URL.createObjectURL(blob)
 
         img.onload = () => {
-          // console.log(`Loaded mask image: ${img.width}x${img.height}`)
+          console.log(`Loaded mask image: ${img.width}x${img.height}`)
           const canvas = document.createElement('canvas')
           canvas.width = img.width
           canvas.height = img.height
@@ -180,7 +182,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
           const sliceIndex = coord.z
           const [dimX, dimY, dimZ] = existingMask.dims
 
-          // console.log(`Mapping ${img.width}x${img.height} mask to ${dimX}x${dimY} volume slice ${sliceIndex}`)
+          console.log(`Mapping ${img.width}x${img.height} mask to ${dimX}x${dimY} volume slice ${sliceIndex}`)
 
           // Save history before modifying
           maskManager.setCurrentSlice(structureId, sliceIndex)
@@ -205,7 +207,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
                   voxelY >= 0 && voxelY < dimY &&
                   voxelZ >= 0 && voxelZ < dimZ) {
 
-                  maskManager.updateMaskVoxel(structureId, voxelX, voxelY, voxelZ, 255, 1)
+                  maskManager.updateMaskVoxel(structureId,localStorage.getItem('selected_patient')!, voxelX, voxelY, voxelZ, 255, 1)
                   pixelsAdded++
                 }
               }
@@ -258,7 +260,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode }: SidebarItemPr
 
   return (
     <div className="sidebar-item-container">
-      <div className="sidebar-item">
+      <div className="sidebar-item" title={titre}>
         <div className="sidebar-item-color" style={{ backgroundColor: color }}></div>
         <span className="sidebar-item-title" onClick={toggleExpanded}>
           {title}

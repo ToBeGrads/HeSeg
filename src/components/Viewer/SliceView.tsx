@@ -42,7 +42,7 @@ export function SliceView({
   // STORES
   // ========================
   const volumeData = useVolumeStore((state) => state.volumeData)
-  const structures = useStructureStore((state) => state.structures)
+  const structures = useStructureStore((state) => state.mystructures)
   const { addCoordinate } = useStructureStore()
 
   const {
@@ -238,8 +238,8 @@ export function SliceView({
         voxelZ = volumeData.dims[2] - 1 - pixelY
         break
     }
-
-    maskManager.updateMaskVoxel(activeStructureId, voxelX, voxelY, voxelZ, value, brushSize)
+    const patient_id = localStorage.getItem("selected_patient")!
+    maskManager.updateMaskVoxel(activeStructureId, patient_id, voxelX, voxelY, voxelZ, value, brushSize)
   }
 
   const handleSliceChange = (direction: 'prev' | 'next') => {
@@ -739,6 +739,7 @@ export function SliceView({
 
               const structure = structures.find(s => s.id === structureId)
               const structureColor = structure?.color || '#7ddb94'
+              // console.log("logging the mask slice", maskSlice)
 
               return (
                 <MaskOverlay
