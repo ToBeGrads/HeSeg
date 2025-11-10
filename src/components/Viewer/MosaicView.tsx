@@ -11,7 +11,7 @@ interface MosaicViewProps {
 
 export function MosaicView({ slices }: MosaicViewProps) {
   const { currentSlices, setCurrentSlice } = useViewerStore()
-  const structures = useStructureStore((state) => state.structures)
+  const structures = useStructureStore((state) => state.mystructures)
   const { maskVisibility } = useMaskStore()
   const currentSlice = currentSlices.axial
 

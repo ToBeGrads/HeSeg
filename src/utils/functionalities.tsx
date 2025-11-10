@@ -30,21 +30,27 @@ export async function save_mask(structure_id: number, patient_id: string, blob: 
     }
 
   } catch (e) {
-    console.error('Error occured', e)
+    // console.error('Error occured', e)
+    console.error('Error occured')
   }
 }
 
 export async function segment(coord: Coordinate, currentSliceURL: string) {
-  const response = await Axios.post("segment/", {
-    coords: coord,
-    file: currentSliceURL,
-  }, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
-    },
-  })
-
-  return response;
+  try {
+    const response = await Axios.post("segment/", {
+      coords: coord,
+      file: currentSliceURL,
+    }, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+      },
+    })
+    return response;
+  }catch(err){
+    // console.error(err.response.data.message)
+    console.error("An Error occured")
+  }
+  
 }
 
 export async function createMask(Mask: Blob, structure_id: number, patient_id: string, color: string, dims: [number, number, number]) {
@@ -75,7 +81,8 @@ export async function createMask(Mask: Blob, structure_id: number, patient_id: s
       localStorage.setItem(`current_mask_id`, res.data.mask_id)
     }
   } catch (err) {
-    console.error('Error uploading mask:', err)
+    // console.error('Error uploading mask:', err)
+    console.error('Error uploading mask')
   }
 
 }
@@ -88,7 +95,7 @@ export async function Load_Mask(formData: FormData) {
       },
     })
     console.log('Mask loaded:', res.data)
-    if (res.status == 200) {
+    if (res.status == 200 && res.data.mask) {
       const base64 = res.data.mask.mask_data
       const binary = atob(base64)
       const bytes = new Uint8Array(binary.length)
@@ -114,7 +121,8 @@ export async function Load_Mask(formData: FormData) {
       return data
     }
   } catch (err) {
-    console.error('Error uploading mask:', err)
+    // console.error('Error uploading mask:', err)
+    console.error('Error uploading mask')
   }
 
   return null

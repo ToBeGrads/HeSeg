@@ -25,7 +25,7 @@ export class MedicalImageLoader {
     try {
       // console.log('Loading NIfTI file:', filePath);
       
-      const nvImage = await NVImage.loadFromUrl({ url: filePath });
+      const nvImage = await NVImage.loadFromUrl({ url: filePath, headers: {'ngrok-skip-browser-warning': '69420' } });
       
       if (!nvImage || !nvImage.img) {
         throw new Error('Failed to load NIfTI image - no image data');

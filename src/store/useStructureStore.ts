@@ -72,17 +72,7 @@ export const useStructureStore = create<StructureState>()(
           // Upload the new structure to the backend
           const res = await AddStructure(newStructure)
           if (res.status === 200) {
-            console.log('Structure uploaded successfully:', res.data)
-            // Update local state only after successful upload
-            // if(res.data.message == "it Already exists!"){
-            // set(
-            //   (state) => ({
-            //     mystructures: [...state.mystructures, newStructure]
-            //   }),
-            //   false,
-            //   'addStructure'
-            // )
-            // }
+            // console.log('Structure :', res.data)
             set(
               (state) => ({
                 mystructures: [...state.mystructures, newStructure]
@@ -90,40 +80,24 @@ export const useStructureStore = create<StructureState>()(
               false,
               'addStructure'
             )
-        if (volumeData) {
-          const patient_id = localStorage.getItem('selected_patient')!
-          maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
-        }
-          } else {
-            console.error('Unexpected response when adding structure:', res)
+            if (volumeData) {
+              const patient_id = localStorage.getItem('selected_patient')!
+              maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
+            }
           }
         } catch (err) {
-          console.error('Error adding structure:', err)
+          if (err.response) {
+            // Backend responded with a status code not in 2xx
+            if (err.response.status === 400) {
+              console.error('Bad request:', err.response.data.message);
+            } else {
+              console.error('Other error:', err.response.status, err.response.data);
+            }
+          } else {
+            // Network or unexpected error
+            console.error('Request failed:', err.message);
+          }
         }
-        // set(
-        //   (state) => {
-        //     const exists = state.mystructures.some(
-        //       (s) => s.id === newStructure.id && s.title === newStructure.title
-        //     );
-
-        //     if (exists) {
-        //       console.log("Structure already exists, skipping add:", newStructure);
-        //       return state; // return unchanged state
-        //     }
-        //     return {
-        //       mystructures: [...state.mystructures, newStructure]
-        //     };
-        //   },
-        //   false,
-        //   'addStructure'
-        // );
-
-        // Create mask in maskManager if volume data exists
-        if (volumeData) {
-          const patient_id = localStorage.getItem('selected_patient')!
-          maskManager.createMask(patient_id, newStructure.id, volumeData.dims)
-        }
-
       },
       //fetch the structures from the backend 
       fetchStructures: async (token) => {
@@ -140,44 +114,46 @@ export const useStructureStore = create<StructureState>()(
               title: structure.title,
             }))
             set({ structures })
-            console.log('Structures loaded:', res.data.structures)
-          }else if(res.status == 400) {
-            console.log(res.data.message)
+            // console.log('Structures loaded:', res.data.structures)
+          } else if (res.status == 400) {
+            // console.log(res.data.message)
           }
-          else{
-            console.log(res.data.message)
+          else {
+            // console.log(res.data.message)
           }
         } catch (err) {
-          console.error('Error fetching structures:', err)
+          // console.error('Error fetching structures:', err)
+          console.error('Error fetching structures')
         }
       },
       // fetch my structures 
       fetchMyStructures: async (token, patient_id) => {
-        console.log("loading the structures the doctor is labeling for the patient", token, patient_id)
+        // console.log("loading the structures the doctor is labeling for the patient", token, patient_id)
 
         try {
           const res = await GetMyStructures(token, patient_id)
 
-        if (res.status === 200 && Array.isArray(res.data.mystructures)) {
-            console.log("this what front see from my structures", res.data)
-            if(res.data.mystructures){
-            const mystructures = res.data.mystructures.map((structure: any) => ({
-              id: structure.structure_id,
-              title: structure.structure_title,
-              color: structure.structure_color,
-              coordinates: structure.coordinates || [], 
-            }))
-            set({ mystructures })
-            console.log('Structures loaded for the doctor-patient:', res.data.structures)
-          }else{
-            console.log("this doctors did not start annotation yet")
-          }
-        } else {
+          if (res.status === 200 && Array.isArray(res.data.mystructures)) {
+            // console.log("this what front see from my structures", res.data)
+            if (res.data.mystructures) {
+              const mystructures = res.data.mystructures.map((structure: any) => ({
+                id: structure.structure_id,
+                title: structure.structure_title,
+                color: structure.structure_color,
+                coordinates: structure.coordinates || [],
+              }))
+              set({ mystructures })
+              // console.log('Structures loaded for the doctor-patient:', res.data.structures)
+            } else {
+              // console.log("this doctors did not start annotation yet")
+            }
+          } else {
 
-            console.log("this what front see from my structures", res.data)
+            // console.log("this what front see from my structures", res.data)
           }
         } catch (err) {
-          console.error('Error fetching structures:', err)
+          // console.error('Error fetching structures:', err)
+          console.error('Error fetching structures')
         }
       },
       // Update structure
@@ -214,9 +190,9 @@ export const useStructureStore = create<StructureState>()(
       addCoordinate: async (structureId, coordinate) => {
         try {
           const res = await AddCoordinates(coordinate, structureId)
-          console.log("from add coordinates", res.data)
+          // console.log("from add coordinates", res.data)
           if (res.status == 200) {
-            console.log(res.data.message)
+            // console.log(res.data.message)
             if (res.data.message == "Coordinates added successfully") {
               set(
                 (state) => ({
@@ -231,10 +207,11 @@ export const useStructureStore = create<StructureState>()(
               )
             }
           } else {
-            console.log(res.data.message);
+            // console.log(res.data.message);
           }
         } catch (e) {
-          console.error('error saveing coordinates', e)
+          // console.error('error saveing coordinates', e)
+          console.error('error adding coordinates')
         }
 
 
@@ -259,7 +236,7 @@ export const useStructureStore = create<StructureState>()(
             }
           );
           if (res.status == 200) {
-            console.log(res.data.message)
+            // console.log(res.data.message)
             if (res.data.message == "Coordinates updated successfully") {
               set(
                 (state) => ({
@@ -272,10 +249,11 @@ export const useStructureStore = create<StructureState>()(
               )
             }
           } else {
-            console.log(res.data.message);
+            // console.log(res.data.message);
           }
         } catch (e) {
-          console.error('error saveing coordinates', e)
+          // console.error('error saveing coordinates', e)
+          console.error('error updating coordinates')
         }
         // console.log(`Coordinates updated for structure ${structureId}`)
       },

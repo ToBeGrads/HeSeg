@@ -121,15 +121,15 @@ export class MaskManager extends SimpleEventEmitter {
 
     //Try to load from IndexedDB
     let stored
-    // try {
-    //   stored = await loadMask(structureId)
-    // } catch (err) {
-    //   console.error(`Failed to load mask from DB for structure ${structureId}:`, err)
-    //   return null
-    // }
+    try {
+      stored = await loadMask(structureId)
+    } catch (err) {
+      console.error(`Failed to load mask from DB for structure ${structureId}:`, err)
+      return null
+    }
 
     // If nothing in DB, look in teh backend
-    // if (!stored || !stored.data || !stored.dims || stored.dims.length !== 3) {
+    if (!stored || !stored.data || !stored.dims || stored.dims.length !== 3) {
     console.warn(`No mask found for structure ${structureId} in indexedDB`)
     console.log("loading the mask from the database-backend")
 
@@ -140,7 +140,7 @@ export class MaskManager extends SimpleEventEmitter {
     // fetch from backend 
     stored = await Load_Mask(formData)
     // return stored
-    // }
+    }
 
     // Rebuild mask from DB
     const loadedMask: Mask = {
