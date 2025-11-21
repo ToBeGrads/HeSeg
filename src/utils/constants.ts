@@ -1,5 +1,5 @@
 // src/utils/constants.ts
-export const BASEURL = "https://stackless-gablewindowed-yanira.ngrok-free.dev"
+export const BASEURL = "http://localhost:8000";
 
 export const AVAILABLE_COLORS = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
@@ -30,7 +30,7 @@ export const AVAILABLE_COLORS = [
     brightness: 0.5,
     contrast: 0.5,
     opacity: 1.0,
-    crosshair: true
+    crosshair: false
   }
   
   export const BRUSH_SIZE = {

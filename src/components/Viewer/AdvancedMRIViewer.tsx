@@ -201,6 +201,7 @@ function AdvancedMRIViewer() {
               onVoxelCoordsChange={setVoxelCoords}
               onPreviewCoordinateChange={setPreviewCoordinate}
               previewCoordinate={previewCoordinate}
+              viewMode={viewMode}
             />
           </div>
         )}
@@ -305,7 +306,7 @@ function AdvancedMRIViewer() {
           structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
           brushSize={brushSize}
           onBrushSizeChange={setBrushSize}
-          tool={tool}
+          tool={tool as 'draw' | 'erase'}
           onToolChange={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}

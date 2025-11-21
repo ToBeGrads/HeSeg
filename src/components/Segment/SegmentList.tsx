@@ -10,7 +10,7 @@ import { BASEURL } from "../../utils/constants"
 
 
 
-export default function SegmentList({ onReturn }: { onReturn: () => void }) {
+export default function SegmentList() {
   const [data, setData] = useState([
     {
       patient_id: "PID_100",
@@ -25,10 +25,9 @@ export default function SegmentList({ onReturn }: { onReturn: () => void }) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await axios.get("https://stackless-gablewindowed-yanira.ngrok-free.dev/segment/MRI_List_For_Segment", {
+        const res = await axios.get(`${BASEURL}/segment/MRI_List_For_Segment`, {
           headers: {
             "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
             "Authorization": `Bearer ${token}`,
           },
         });
@@ -90,7 +89,7 @@ export default function SegmentList({ onReturn }: { onReturn: () => void }) {
               ))
             ) : (
               <tr>
-                <td colSpan="3" style={{ textAlign: 'center', color: 'gray' }}>
+                <td colSpan={3} style={{ textAlign: 'center', color: 'gray' }}>
                   Not Found
                 </td>
               </tr>

@@ -1,4 +1,5 @@
 import { Niivue, NVImage } from '@niivue/niivue'
+import type { VolumeData } from '../types'
 
 export interface MedicalImageData {
   pixelData: Uint8Array | Uint16Array | Float32Array;
@@ -10,22 +11,14 @@ export interface MedicalImageData {
   max?: number;
 }
 
-export interface VolumeData {
-  nvImage: NVImage;
-  dims: number[];
-  min: number;
-  max: number;
-  voxelSize: number[];
-  scl_slope: number;
-  scl_inter: number;
-}
+
 
 export class MedicalImageLoader {
   static async loadNiftiVolume(filePath: string): Promise<VolumeData> {
     try {
       // console.log('Loading NIfTI file:', filePath);
       
-      const nvImage = await NVImage.loadFromUrl({ url: filePath, headers: {'ngrok-skip-browser-warning': '69420' } });
+      const nvImage = await NVImage.loadFromUrl({ url: filePath});
       
       if (!nvImage || !nvImage.img) {
         throw new Error('Failed to load NIfTI image - no image data');
@@ -37,6 +30,11 @@ export class MedicalImageLoader {
       
       const dims = nvImage.hdr?.dims?.slice(1, 4) || [256, 256, 180];
       const voxelSize = nvImage.hdr?.pixDims?.slice(1, 4) || [1, 1, 1];
+    
+
+      const pixDims = nvImage.hdr?.pixDims?.slice(1, 4) || [0, 0, 0];
+
+      console.log(pixDims)
       
       const scl_slope = nvImage.hdr?.scl_slope || 1;
       const scl_inter = nvImage.hdr?.scl_inter || 0;
@@ -58,6 +56,7 @@ export class MedicalImageLoader {
       
       // console.log('Volume info:');
       // console.log('  Dimensions:', dims);
+      // console.log('  Pixel Dimensions (spacing):', pixDims);
       // console.log('  Value Range:', [min, max]);
       
       return {
@@ -67,8 +66,10 @@ export class MedicalImageLoader {
         max,
         voxelSize,
         scl_slope,
-        scl_inter
+        scl_inter,
+        pixDims
       };
+
     } catch (error) {
       console.error('Error loading NIfTI file:', error);
       throw error;

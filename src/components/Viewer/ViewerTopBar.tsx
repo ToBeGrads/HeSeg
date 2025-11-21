@@ -2,6 +2,9 @@
 import { FiSettings, FiGrid, FiSquare, FiLayers, FiEye } from 'react-icons/fi'
 import { useVolumeStore } from '../../store/useVolumeStore'
 import { useViewerStore } from '../../store/useViewerStore'
+import { useMaskStore } from '../../store/useMaskStore';
+import type { Tool } from '../../types';
+import { TfiRuler } from 'react-icons/tfi';
 
 interface ViewerTopBarProps {
   voxelCoords: { x: number; y: number; z: number }
@@ -11,6 +14,19 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
   // ✨ Get state directly from stores
   const volumeData = useVolumeStore((state) => state.volumeData)
   const { viewMode, showSettings, setViewMode, toggleSettings } = useViewerStore()
+  const {tool, setTool, clearActiveRuler} = useMaskStore()
+
+  const handleRulerToggle = () => {
+    if (tool === 'ruler' as Tool) {
+      // Turn off ruler
+      setTool('draw')
+      clearActiveRuler()
+    } else {
+      // Turn on ruler
+      setTool('ruler' as Tool)
+      clearActiveRuler()
+    }
+  }
 
   return (
     <div className="viewer-topbar">
@@ -24,6 +40,9 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
             <span className="voxel-coords">
               ({voxelCoords.x}, {voxelCoords.y}, {voxelCoords.z})
             </span>
+             <span className="volume-spacing">
+                {volumeData.pixDims[0].toFixed(2)}×{volumeData.pixDims[1].toFixed(2)}×{volumeData.pixDims[2].toFixed(2)} mm
+              </span>
           </>
         )}
       </div>
@@ -65,6 +84,14 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
       </div>
 
       <div className="topbar-right">
+         {/* Ruler Button */}
+         <button
+          className={`settings-btn ruler-btn ${tool === 'ruler' as Tool ? 'active' : ''}`}
+          onClick={handleRulerToggle}
+          title="Ruler - Measure distance (R)"
+        >
+          <TfiRuler size={16} />
+        </button>
         <button
           className={`settings-btn ${showSettings ? 'active' : ''}`}
           onClick={toggleSettings}

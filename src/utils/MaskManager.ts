@@ -1,6 +1,5 @@
 // src/utils/MaskManager.ts
 import { saveMask, deleteMask, loadMask } from './MaskDB';
-import Axios from './Axios';
 import { debounce } from 'lodash'
 import { createMask, Load_Mask } from './functionalities';
 
@@ -82,7 +81,7 @@ export class MaskManager extends SimpleEventEmitter {
     (structureId: number, patient_id: string, dims: [number, number, number], data: Uint8Array) => {
       saveMask(structureId, patient_id, dims, data)
     },
-    500 // wait 0.5s after the last draw before saving
+    250 // wait 0.5s after the last draw before saving
   )
 
   async createMask(patient_id: string, structureId: number, dims: [number, number, number]): Promise<Mask> {

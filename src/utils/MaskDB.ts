@@ -24,7 +24,7 @@ export async function getDB() {
     },
   })
 }
-const debouncedUploadMask = debounce(save_mask, 5000)
+const debouncedUploadMask = debounce(save_mask, 1000)
 
 export async function saveMask(structureId: number, patient_id: string, dims: [number, number, number], data: Uint8Array) {
   const db = await getDB()

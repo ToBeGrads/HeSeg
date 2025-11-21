@@ -6,6 +6,7 @@ import { maskManager } from '../../utils/MaskManager'
 import { PlacementOverlay } from './PlacementOverlay'
 import { PreviewControls } from './PreviewControls'
 import { useMRI } from '../../Context/MRIcontext'
+import type { ViewMode } from '../../types'
 
 // Import stores
 import { useVolumeStore } from '../../store/useVolumeStore'
@@ -15,6 +16,7 @@ import { useMaskStore } from '../../store/useMaskStore'
 import { useViewerStore } from '../../store/useViewerStore'
 import Axios from '../../utils/Axios'
 import { useAuth } from '../../hooks/useAuth'
+import { set } from 'lodash'
 
 type Orientation = 'axial' | 'coronal' | 'sagittal'
 
@@ -27,6 +29,7 @@ interface SliceViewProps {
   previewCoordinate?: any
   viewOnly?: boolean
   ratingMode?: boolean
+  viewMode?: ViewMode
 }
 
 export function SliceView({
@@ -37,6 +40,7 @@ export function SliceView({
   previewCoordinate: externalPreviewCoord,
   viewOnly = false,
   ratingMode = false,
+  viewMode = 'quad'
 }: SliceViewProps) {
   // ========================
   // STORES
@@ -54,11 +58,20 @@ export function SliceView({
   } = usePlacementStore()
 
   const {
-    activeStructureId,
-    maskVisibility,
-    tool,
-    brushSize
-  } = useMaskStore()
+  activeStructureId,
+  maskVisibility,
+  tool,
+  brushSize,
+  rulers,
+  activeRuler,
+  rulerDragging,
+  startNewRuler,
+  setActiveRulerEnd,
+  deleteRuler,
+  updateRulerPoint,
+  setRulerDragging,
+  clearActiveRuler
+} = useMaskStore()
 
   const {
     currentSlices,
@@ -80,6 +93,7 @@ export function SliceView({
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null)
   const [crosshairPos, setCrosshairPos] = useState({ x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 })
   const [hoverCrosshair, setHoverCrosshair] = useState<{ x: number; y: number } | null>(null)
+  const [rulerHoverPoint, setRulerHoverPoint] = useState<{ x: number, y: number } | null>(null)
   const { token } = useAuth()
 
   const lastPosRef = useRef<{ x: number; y: number } | null>(null)
@@ -299,6 +313,50 @@ export function SliceView({
       resetViewState(orientation)
     }
   }
+  // Add these helper functions after handleSliceChange and before handleZoom
+
+  const calculateDistance = (
+    start: { x: number, y: number, z: number },
+    end: { x: number, y: number, z: number }
+  ): number => {
+    if (!volumeData?.pixDims) return 0
+    
+    const dx = (end.x - start.x) * volumeData.pixDims[0]
+    const dy = (end.y - start.y) * volumeData.pixDims[1]
+    const dz = (end.z - start.z) * volumeData.pixDims[2]
+    
+    return Math.sqrt(dx * dx + dy * dy + dz * dz)
+  }
+const voxelToSliceCoords = (voxel: { x: number, y: number, z: number }) => {
+  if (!slice || !volumeData) return null
+
+  let pixelX = 0, pixelY = 0
+  
+  switch (orientation) {
+    case 'axial':
+      if (voxel.z !== currentSlice) return null
+      pixelX = voxel.x
+      pixelY = voxel.y
+      break
+    case 'coronal':
+      if (voxel.y !== currentSlice) return null
+      pixelX = voxel.x
+      pixelY = volumeData.dims[2] - 1 - voxel.z
+      break
+    case 'sagittal':
+      if (voxel.x !== currentSlice) return null
+      pixelX = voxel.y
+      pixelY = volumeData.dims[2] - 1 - voxel.z
+      break
+  }
+
+  return {
+    x: pixelX / slice.width,
+    y: pixelY / slice.height
+  }
+}
+
+
 
   // ========================
   // MOUSE HANDLERS
@@ -315,6 +373,94 @@ export function SliceView({
       target.closest('.pan-control')) {
       return
     }
+
+  // RULER TOOL HANDLING - UPDATED FOR MULTIPLE RULERS
+// RULER TOOL HANDLING - FIXED
+if (tool === 'ruler' && e.button === 0) {
+  const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+  if (!imgElement) return
+
+  const imgRect = imgElement.getBoundingClientRect()
+  const x = e.clientX - imgRect.left
+  const y = e.clientY - imgRect.top
+
+  if (x < 0 || x > imgRect.width || y < 0 || y > imgRect.height) return
+
+  const normalizedX = x / imgRect.width
+  const normalizedY = y / imgRect.height
+  const pixelX = Math.floor(normalizedX * slice.width)
+  const pixelY = Math.floor(normalizedY * slice.height)
+
+  // Convert to voxel
+  let voxelX = 0, voxelY = 0, voxelZ = 0
+  if (!volumeData) return
+
+  switch (orientation) {
+    case 'axial':
+      voxelX = pixelX
+      voxelY = pixelY
+      voxelZ = currentSlices.axial
+      break
+    case 'coronal':
+      voxelX = pixelX
+      voxelZ = volumeData.dims[2] - 1 - pixelY
+      voxelY = currentSlices.coronal
+      break
+    case 'sagittal':
+      voxelY = pixelX
+      voxelZ = volumeData.dims[2] - 1 - pixelY
+      voxelX = currentSlices.sagittal
+      break
+  }
+
+  // Check if clicking on existing ruler points to drag them
+  for (const ruler of rulers) {
+    if (ruler.orientation !== orientation) continue
+
+    const startCoords = voxelToSliceCoords(ruler.start)
+    const endCoords = voxelToSliceCoords(ruler.end)
+    
+    if (startCoords && endCoords) {
+      const startX = startCoords.x * actualWidth
+      const startY = startCoords.y * actualHeight
+      const endX = endCoords.x * actualWidth
+      const endY = endCoords.y * actualHeight
+      
+      const clickX = normalizedX * actualWidth
+      const clickY = normalizedY * actualHeight
+      
+      // Check if clicking near start point (within 15px)
+      const distToStart = Math.sqrt((clickX - startX) ** 2 + (clickY - startY) ** 2)
+      if (distToStart < 1) {
+        setRulerDragging(ruler.id, 'start')
+        e.preventDefault()
+        return
+      }
+      
+      // Check if clicking near end point (within 15px)
+      const distToEnd = Math.sqrt((clickX - endX) ** 2 + (clickY - endY) ** 2)
+      if (distToEnd < 1) {
+        setRulerDragging(ruler.id, 'end')
+        e.preventDefault()
+        return
+      }
+    }
+  }
+
+  // Not clicking on existing points, so create new ruler or set end point
+  if (!activeRuler) {
+    // Start new ruler - set first point
+    startNewRuler({ x: voxelX, y: voxelY, z: voxelZ })
+    console.log('✅ Ruler start point set:', { x: voxelX, y: voxelY, z: voxelZ })
+  } else if (activeRuler.start && !activeRuler.end) {
+    // Complete the active ruler - set second point
+    setActiveRulerEnd({ x: voxelX, y: voxelY, z: voxelZ }, orientation)
+    console.log('✅ Ruler completed:', { x: voxelX, y: voxelY, z: voxelZ })
+  }
+  
+  e.preventDefault()
+  return
+}
 
     // Mask editing
     if (activeStructureId && !placementActive) {
@@ -450,29 +596,85 @@ export function SliceView({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (viewOnly || ratingMode) return
-
-    // console.log('Mouse move - isDrawing:', isDrawing, 'activeStructure:', activeStructureId)
-
-    // Mask editing
+  
+    const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
+    if (!imgElement) return
+  
+    const imgRect = imgElement.getBoundingClientRect()
+    const x = e.clientX - imgRect.left
+    const y = e.clientY - imgRect.top
+  
+    // Check if mouse is within bounds
+    if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
+      const normalizedX = x / imgRect.width
+      const normalizedY = y / imgRect.height
+      
+      if (!externalPreviewCoord || !placementActive) {
+        setHoverCrosshair({ x: normalizedX, y: normalizedY })
+      }
+  
+      // RULER MODE: Always update hover point when in ruler mode
+      // RULER MODE: Always update hover point when in ruler mode
+if (tool === 'ruler') {
+  setRulerHoverPoint({ x: normalizedX, y: normalizedY })
+  
+  // If dragging a ruler point, update its position
+  if (rulerDragging && volumeData) {
+    const pixelX = Math.floor(normalizedX * slice.width)
+    const pixelY = Math.floor(normalizedY * slice.height)
+    
+    let voxelX = 0, voxelY = 0, voxelZ = 0
+    
+    switch (orientation) {
+      case 'axial':
+        voxelX = pixelX
+        voxelY = pixelY
+        voxelZ = currentSlices.axial
+        break
+      case 'coronal':
+        voxelX = pixelX
+        voxelZ = volumeData.dims[2] - 1 - pixelY
+        voxelY = currentSlices.coronal
+        break
+      case 'sagittal':
+        voxelY = pixelX
+        voxelZ = volumeData.dims[2] - 1 - pixelY
+        voxelX = currentSlices.sagittal
+        break
+    }
+    
+    // Update the ruler point being dragged
+    updateRulerPoint(rulerDragging.rulerId, rulerDragging.point, { x: voxelX, y: voxelY, z: voxelZ })
+    return
+  }
+}
+    } else {
+      setHoverCrosshair(null)
+      setRulerHoverPoint(null)
+    }
+  
+    // If dragging ruler point, don't do other actions
+    if (tool === 'ruler' && rulerDragging) {
+      return
+    }
+  
+    // Mask editing - existing code
     if (activeStructureId && isDrawing && !placementActive) {
-      // console.log('Drawing in progress!')
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
-
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
-
-
+  
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const pixelX = Math.floor((x / imgRect.width) * slice.width)
         const pixelY = Math.floor((y / imgRect.height) * slice.height)
-
+  
         if (lastPosRef.current) {
           const dx = pixelX - lastPosRef.current.x
           const dy = pixelY - lastPosRef.current.y
           const steps = Math.max(Math.abs(dx), Math.abs(dy), 1)
-
+  
           for (let i = 0; i <= steps; i++) {
             const t = i / steps
             const interpX = Math.round(lastPosRef.current.x + dx * t)
@@ -480,41 +682,35 @@ export function SliceView({
             drawAtPoint(interpX, interpY)
           }
         }
-
+  
         lastPosRef.current = { x: pixelX, y: pixelY }
-        e.preventDefault()
-        return
       }
     }
-
-    // Panning
-    if (isPanning && panStart) {
-      e.preventDefault()
+  
+    // Panning - existing code
+    if (isPanning && panStart && viewState.scale > 1) {
       const deltaX = e.clientX - panStart.x
       const deltaY = e.clientY - panStart.y
-
+  
       updateViewState(orientation, {
         offsetX: viewState.offsetX + deltaX,
         offsetY: viewState.offsetY + deltaY
       })
-
+  
       setPanStart({ x: e.clientX, y: e.clientY })
-      return
     }
-
-    // Hover crosshair for placement
+  
+    // Update crosshair for placement mode
     if (placementActive && !externalPreviewCoord) {
-
       const imgElement = e.currentTarget.querySelector('.slice-image') as HTMLImageElement
       if (!imgElement) return
       const imgRect = imgElement.getBoundingClientRect()
       const x = e.clientX - imgRect.left
       const y = e.clientY - imgRect.top
-
+  
       if (x >= 0 && x <= imgRect.width && y >= 0 && y <= imgRect.height) {
         const normalizedX = x / imgRect.width
         const normalizedY = y / imgRect.height
-
         setHoverCrosshair({ x: normalizedX, y: normalizedY })
       } else {
         setHoverCrosshair(null)
@@ -523,6 +719,11 @@ export function SliceView({
   }
 
   const handleMouseUp = () => {
+    // Stop ruler dragging
+  if (tool === 'ruler' && rulerDragging) {
+    setRulerDragging(null,null)
+    return
+  }
     if (activeStructureId && isDrawing) {
       maskManager.setCurrentSlice(activeStructureId, currentSlice)
       maskManager.saveHistory(activeStructureId, currentSlice)
@@ -553,6 +754,7 @@ export function SliceView({
 
     if (placementActive && !externalPreviewCoord) {
       setHoverCrosshair(null)
+      setRulerHoverPoint(null)
     }
   }
 
@@ -767,7 +969,7 @@ export function SliceView({
                         left: `${hoverCrosshair.x * actualWidth}px`,
                         top: 0,
                         bottom: 0,
-                        width: '0.5px',
+                        width: '0.25px',
                         backgroundColor: crosshairColor,
                         boxShadow: `0 0 3px ${crosshairColor}`,
                         opacity: 0.9
@@ -779,7 +981,7 @@ export function SliceView({
                         left: 0,
                         right: 0,
                         top: `${hoverCrosshair.y * actualHeight}px`,
-                        height: '0.5px',
+                        height: '0.25px',
                         backgroundColor: crosshairColor,
                         boxShadow: `0 0 3px ${crosshairColor}`,
                         opacity: 0.9
@@ -790,8 +992,8 @@ export function SliceView({
                         position: 'absolute',
                         left: `${hoverCrosshair.x * actualWidth}px`,
                         top: `${hoverCrosshair.y * actualHeight}px`,
-                        width: '2px',
-                        height: '2px',
+                        width: '1px',
+                        height: '1px',
                         backgroundColor: crosshairColor,
                         borderRadius: '50%',
                         transform: 'translate(-50%, -50%)',
@@ -810,7 +1012,7 @@ export function SliceView({
                         position: 'absolute',
                         left: 0,
                         right: 0,
-                        height: '0.5px',
+                        height: '0.25px',
                         backgroundColor: externalPreviewCoord ? crosshairColor : '#7ddb94',
                         boxShadow: externalPreviewCoord ? `0 0 3px ${crosshairColor}` : '0 0 2px #7ddb94',
                         opacity: 0.8
@@ -823,7 +1025,7 @@ export function SliceView({
                         position: 'absolute',
                         top: 0,
                         bottom: 0,
-                        width: '0.5px',
+                        width: '0.25px',
                         backgroundColor: externalPreviewCoord ? crosshairColor : '#7ddb94',
                         boxShadow: externalPreviewCoord ? `0 0 3px ${crosshairColor}` : '0 0 2px #7ddb94',
                         opacity: 0.8
@@ -834,8 +1036,8 @@ export function SliceView({
                         position: 'absolute',
                         left: `${crosshairPos.x * actualWidth}px`,
                         top: `${crosshairPos.y * actualHeight}px`,
-                        width: '2px',
-                        height: '2px',
+                        width: '1px',
+                        height: '1px',
                         backgroundColor: externalPreviewCoord ? crosshairColor : '#7ddb94',
                         borderRadius: '50%',
                         transform: 'translate(-50%, -50%)',
@@ -848,6 +1050,442 @@ export function SliceView({
                 )}
               </div>
             )}
+            {settings.crosshair == false && (
+              <div className="crosshair-overlay">
+                {hoverCrosshair ? (
+                  <>
+                    
+                    
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${hoverCrosshair.x * actualWidth}px`,
+                        top: `${hoverCrosshair.y * actualHeight}px`,
+                        width: '1px',
+                        height: '1px',
+                        backgroundColor: crosshairColor,
+                        borderRadius: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        boxShadow: `0 0 4px ${crosshairColor}`,
+                        border: '0.5px solid rgba(255, 255, 255, 0.9)',
+                        opacity: 0.95
+                      }}
+                    />
+                  </>
+                ) : (
+                  <>
+                   
+                    
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${crosshairPos.x * actualWidth}px`,
+                        top: `${crosshairPos.y * actualHeight}px`,
+                        width: '1px',
+                        height: '1px',
+                        backgroundColor: externalPreviewCoord ? crosshairColor : '#7ddb94',
+                        borderRadius: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        boxShadow: externalPreviewCoord ? `0 0 4px ${crosshairColor}` : '0 0 3px #7ddb94',
+                        border: '0.5px solid rgba(255, 255, 255, 0.9)',
+                        opacity: 0.9
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+            {/* Multiple Rulers Overlay - Render both active and completed */}
+{tool === 'ruler' && (
+  <div 
+    className="ruler-overlay"
+    style={{ 
+      position: 'absolute', 
+      top: 0, 
+      left: 0, 
+      width: `${actualWidth}px`,
+      height: `${actualHeight}px`,
+      zIndex: 15,
+      pointerEvents: 'none',
+      
+    }}
+  >
+    <svg
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'auto'
+      }}
+    >
+      {/* RENDER ALL COMPLETED RULERS for this orientation */}
+      {rulers.filter(r => r.orientation === orientation).map(ruler => {
+        const startCoords = voxelToSliceCoords(ruler.start)
+        const endCoords = voxelToSliceCoords(ruler.end)
+        
+        if (!startCoords || !endCoords) return null
+
+        const startX = startCoords.x * actualWidth
+        const startY = startCoords.y * actualHeight
+        const endX = endCoords.x * actualWidth
+        const endY = endCoords.y * actualHeight
+
+        const distance = calculateDistance(ruler.start, ruler.end)
+
+        return (
+          <g key={ruler.id}>
+            {/* Line */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke="#7ddb94"
+              strokeWidth="0.2"
+              strokeLinecap="round"
+            />
+            
+            {/* Start point */}
+            <circle 
+              cx={startX} 
+              cy={startY} 
+              r="0.5" 
+              fill="#7ddb94" 
+              stroke="white" 
+              strokeWidth="0.5"
+              style={{ cursor: 'move', pointerEvents: 'none' }}
+            />
+            
+            {/* End point */}
+            <circle 
+              cx={endX} 
+              cy={endY} 
+              r="0.5" 
+              fill="#7ddb94" 
+              stroke="white" 
+              strokeWidth="0.5"
+              style={{ cursor: 'move', pointerEvents: 'none' }}
+            />
+
+            {/* Delete button */}
+            <g 
+              style={{ pointerEvents: 'auto' }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                deleteRuler(ruler.id)
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
+              <circle
+                cx={(startX + endX) / 2}
+                cy={(startY + endY) / 2}
+                r="1.4"
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+              />
+              <text
+                x={(startX + endX) / 2}
+                y={(startY + endY) / 2 + 0.8}
+                textAnchor="middle"
+                fill="white"
+                fontSize="2.3"
+                fontWeight="bold"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                ×
+              </text>
+            </g>
+
+            {/* Distance label */}
+            <text
+              x={(startX + endX) / 2}
+              y={Math.min(startY, endY) + 10}
+              textAnchor="middle"
+              fill="#7ddb94"
+              fontSize="2"
+              fontWeight="bold"
+              fontFamily="'Courier New', monospace"
+              style={{ pointerEvents: 'none' }}
+            >
+              {distance.toFixed(2)} mm
+            </text>
+          </g>
+        )
+      })}
+
+      {/* RENDER ACTIVE RULER being drawn */}
+      {activeRuler && activeRuler.start && (() => {
+        const startCoords = voxelToSliceCoords(activeRuler.start)
+        const endCoords = rulerHoverPoint
+
+        if (!startCoords || !endCoords) return null
+
+        const startX = startCoords.x * actualWidth
+        const startY = startCoords.y * actualHeight
+        const endX = endCoords.x * actualWidth
+        const endY = endCoords.y * actualHeight
+
+        // Calculate live distance
+        const pixelX = Math.floor(rulerHoverPoint.x * slice.width)
+        const pixelY = Math.floor(rulerHoverPoint.y * slice.height)
+        
+        let hoverVoxelX = 0, hoverVoxelY = 0, hoverVoxelZ = 0
+        
+        switch (orientation) {
+          case 'axial':
+            hoverVoxelX = pixelX
+            hoverVoxelY = pixelY
+            hoverVoxelZ = currentSlices.axial
+            break
+          case 'coronal':
+            hoverVoxelX = pixelX
+            hoverVoxelZ = volumeData!.dims[2] - 1 - pixelY
+            hoverVoxelY = currentSlices.coronal
+            break
+          case 'sagittal':
+            hoverVoxelY = pixelX
+            hoverVoxelZ = volumeData!.dims[2] - 1 - pixelY
+            hoverVoxelX = currentSlices.sagittal
+            break
+        }
+        
+        const distance = calculateDistance(
+          activeRuler.start, 
+          { x: hoverVoxelX, y: hoverVoxelY, z: hoverVoxelZ }
+        )
+
+        return (
+          <g key="active-ruler">
+            {/* Dashed line for active ruler */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke="#7ddb94"
+              strokeWidth="0.2"
+              strokeDasharray="8,4"
+              strokeLinecap="round"
+            />
+            
+            {/* Start point */}
+            <circle 
+              cx={startX} 
+              cy={startY} 
+              r="0.5" 
+              fill="#7ddb94" 
+              stroke="white" 
+              strokeWidth="0.5"
+            />
+            
+            {/* Hover endpoint */}
+            <circle 
+              cx={endX} 
+              cy={endY} 
+              r="0.5" 
+              fill="#7ddb94" 
+              stroke="white" 
+              strokeWidth="0.5" 
+              opacity="0.6"
+            />
+
+            {/* Live distance */}
+            <text
+              x={(startX + endX) / 2}
+              y={Math.min(startY, endY) + 10}
+              textAnchor="middle"
+              fill="#7ddb94"
+              fontSize="2"
+              fontWeight="bold"
+              fontFamily="'Courier New', monospace"
+              style={{ pointerEvents: 'none' }}
+            >
+              {distance.toFixed(2)} mm ⋯
+            </text>
+          </g>
+        )
+      })()}
+    </svg>
+  </div>
+)}
+{/* Measurement Rulers - Width and Height (Outside Image) */}
+{viewMode === 'single' && volumeData && (
+  <>
+    {/* Top ruler - Width */}
+    <div style={{
+      position: 'absolute',
+      top: '-30px',
+      left: '0px',
+      width: `${actualWidth}px`,
+      height: '30px',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      padding: '0 0',
+      fontSize: '8px',
+      color: '#7ddb94',
+      fontFamily: "'Courier New', monospace",
+      zIndex: 10,
+      pointerEvents: 'none',
+      opacity: "0.5"
+    }}>
+      {(() => {
+        // More ticks when zoomed, but keep spacing reasonable
+        const baseTicks = 10
+        const zoomFactor = Math.min(viewState.scale, 5) // Cap at 5x
+        const numTicks = Math.floor(baseTicks * zoomFactor)
+        const pixelDim = orientation === 'sagittal' ? volumeData.pixDims[1] : volumeData.pixDims[0]
+        const totalMM = slice.width * pixelDim
+        
+        // Show fewer labels when more zoomed to avoid density
+        const labelInterval = viewState.scale > 3 ? 3 : viewState.scale > 2 ? 2 : 2
+        
+        return Array.from({ length: numTicks + 1 }).map((_, i) => {
+          const mmValue = (totalMM * i / numTicks)
+          const showLabel = i % labelInterval === 0
+          const isMajorTick = i % 5 === 0
+          
+          return (
+            <div key={i} style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              opacity: showLabel ? 1 : 0.4
+            }}>
+              <div style={{ 
+                width: '1px', 
+                height: isMajorTick ? '12px' : '6px', 
+                backgroundColor: '#7ddb94',
+                marginBottom: '2px'
+              }} />
+              {showLabel && (
+                <span style={{ 
+                  fontSize: viewState.scale > 2 ? '6px' : '7px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {mmValue.toFixed(0)}
+                </span>
+              )}
+            </div>
+          )
+        })
+      })()}
+    </div>
+
+    {/* Left ruler - Height */}
+    <div style={{
+      position: 'absolute',
+      top: '0px',
+      left: '-35px',
+      height: `${actualHeight}px`,
+      width: '35px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      padding: '0 0',
+      fontSize: '8px',
+      color: '#7ddb94',
+      fontFamily: "'Courier New', monospace",
+      zIndex: 10,
+      pointerEvents: 'none',
+      opacity: "0.5"
+    }}>
+      {(() => {
+        // More ticks when zoomed, but keep spacing reasonable
+        const baseTicks = 10
+        const zoomFactor = Math.min(viewState.scale, 5) // Cap at 5x
+        const numTicks = Math.floor(baseTicks * zoomFactor)
+        const pixelDim = orientation === 'axial' ? volumeData.pixDims[1] : volumeData.pixDims[2]
+        const totalMM = slice.height * pixelDim
+        
+        // Show fewer labels when more zoomed to avoid density
+        const labelInterval = viewState.scale > 3 ? 3 : viewState.scale > 2 ? 2 : 2
+        
+        return Array.from({ length: numTicks + 1 }).map((_, i) => {
+          const mmValue = (totalMM * i / numTicks)
+          const showLabel = i % labelInterval === 0
+          const isMajorTick = i % 5 === 0
+          
+          return (
+            <div key={i} style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              opacity: showLabel ? 1 : 0.4
+            }}>
+              {showLabel && (
+                <span style={{ 
+                  marginRight: '3px', 
+                  fontSize: viewState.scale > 2 ? '6px' : '7px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {mmValue.toFixed(0)}
+                </span>
+              )}
+              <div style={{ 
+                width: isMajorTick ? '12px' : '6px', 
+                height: '1px', 
+                backgroundColor: '#7ddb94'
+              }} />
+            </div>
+          )
+        })
+      })()}
+    </div>
+
+    {/* Corner label - mm */}
+    <div style={{
+      position: 'absolute',
+      top: '-30px',
+      left: '-35px',
+      width: '35px',
+      height: '30px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '7px',
+      color: '#7ddb94',
+      fontFamily: "'Courier New', monospace",
+      fontWeight: 'bold',
+      zIndex: 11,
+      pointerEvents: 'none'
+    }}>
+      mm
+    </div>
+
+    {/* Top border line */}
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: `${actualWidth}px`,
+      height: '1px',
+      backgroundColor: '#7ddb94',
+      opacity: 0.3,
+      zIndex: 9,
+      pointerEvents: 'none'
+    }} />
+
+    {/* Left border line */}
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      height: `${actualHeight}px`,
+      width: '1px',
+      backgroundColor: '#7ddb94',
+      opacity: 0.3,
+      zIndex: 9,
+      pointerEvents: 'none'
+    }} />
+  </>
+)}
           </div>
         </div>
       </div>
