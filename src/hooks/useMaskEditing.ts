@@ -97,9 +97,10 @@ export function useMaskEditing(volumeDims: [number, number, number] | null) {
             interpVoxelX = currentSlice
             break
         }
-
+        const patient_id = localStorage.getItem('selected_patient')
         maskManager.updateMaskVoxel(
           activeStructureId,
+          patient_id!,
           interpVoxelX,
           interpVoxelY,
           interpVoxelZ,
@@ -108,8 +109,10 @@ export function useMaskEditing(volumeDims: [number, number, number] | null) {
         )
       }
     } else {
+      const patient_id = localStorage.getItem('selected_patient')
       maskManager.updateMaskVoxel(
         activeStructureId,
+        patient_id!,
         voxelX,
         voxelY,
         voxelZ,

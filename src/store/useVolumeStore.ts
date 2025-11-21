@@ -41,7 +41,7 @@ export const useVolumeStore = create<VolumeState>()(
           ]
           
           let volume: VolumeData | null = null
-          let loadedPath = ''
+          // let loadedPath = ''
           
           for (const tryPath of possiblePaths) {
             try {
@@ -55,7 +55,7 @@ export const useVolumeStore = create<VolumeState>()(
               } else {
                 throw new Error('Invalid volume dimensions. Expected 3 elements.')
               }
-              loadedPath = tryPath
+              // loadedPath = tryPath
               // console.log(`SUCCESS! Loaded from: ${loadedPath}`)
               break
             } catch (error) {

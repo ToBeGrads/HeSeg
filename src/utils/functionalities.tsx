@@ -1,8 +1,12 @@
-import type { List } from "lodash";
 import Axios from "./Axios";
 import type { Coordinate } from "../types";
 import { type ExtendedStructure } from "../store/useStructureStore";
 
+type MaskData = {
+  data: Uint8Array | null;
+  dims: [number, number, number] | null;
+  opacity: number;
+};
 export async function save_mask(structure_id: number, patient_id: string, blob: Blob, dims: [number, number, number]) {
   try {
     //send the changes to the backend
@@ -46,15 +50,14 @@ export async function segment(coord: Coordinate, currentSliceURL: string) {
       },
     })
     return response;
-  }catch(err){
+  } catch (err) {
     // console.error(err.response.data.message)
     console.error("An Error occured")
   }
-  
+
 }
 
 export async function createMask(Mask: Blob, structure_id: number, patient_id: string, color: string, dims: [number, number, number]) {
-
   try {
     // create the form data 
     const mask = new File([Mask], `mask-${structure_id}-${patient_id}.raw`, {
@@ -87,7 +90,7 @@ export async function createMask(Mask: Blob, structure_id: number, patient_id: s
 
 }
 
-export async function Load_Mask(formData: FormData) {
+export async function Load_Mask(formData: FormData): Promise<MaskData> {
   try {
     const res = await Axios.post("segment/Load_mask", formData, {
       headers: {
@@ -108,15 +111,15 @@ export async function Load_Mask(formData: FormData) {
       let data = {
         data: maskData,
         dims: res.data.mask.mask_dims,
-        opacity: ""
+        opacity: 0.5
       }
       return data
 
     } else {
       let data = {
-        data: "",
-        dims: "",
-        opacity: ""
+        data: null,
+        dims: null,
+        opacity: 0.5
       }
       return data
     }
@@ -125,7 +128,13 @@ export async function Load_Mask(formData: FormData) {
     console.error('Error uploading mask')
   }
 
-  return null
+  // for all other cases 
+  let data = {
+    data: null,
+    dims: null,
+    opacity: 0.5
+  }
+  return data
 }
 
 export async function GetMyStructures(token: string, patient_id: string) {
@@ -141,12 +150,13 @@ export async function GetMyStructures(token: string, patient_id: string) {
 }
 
 
-export async function AddCoordinates(coordinate: Coordinate, structureId: number) {
+export async function AddCoordinates(coordinate: Coordinate, structureId: number, modality : string) {
   const res = await Axios.post(
     "segment/AddCoordinates",
     {
       coordinates: coordinate,
       structure_id: structureId,
+      modality : modality,
       patient_id: localStorage.getItem("selected_patient")
     },
     {

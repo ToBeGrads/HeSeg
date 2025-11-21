@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FiX } from 'react-icons/fi'
 import './AddStructureModal.css'
-import { AVAILABLE_COLORS, DEFAULT_STRUCTURE_TITLES } from '../utils/constants'
+import { AVAILABLE_COLORS } from '../utils/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useEffect } from 'react'
 import { useStructureStore } from '../store/useStructureStore'
@@ -11,7 +11,6 @@ interface AddStructureModalProps {
   onClose: () => void
   onAdd: (id: number, title: string, color: string) => void
   existingColors: string[]
-  existingTitles?: string[] // ✅ Added this prop
 }
 
 function AddStructureModal({
@@ -19,7 +18,6 @@ function AddStructureModal({
   onClose,
   onAdd,
   existingColors,
-  existingTitles = []
 }: AddStructureModalProps) {
 
   const structures = useStructureStore((state) => state.structures)

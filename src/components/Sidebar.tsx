@@ -1,6 +1,5 @@
 // src/components/Sidebar.tsx
 import './Sidebar.css'
-import SidebarItem from './SidebarItem'
 import AddStructureModal from './AddStructureModal'
 import { useState, useEffect } from 'react'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
@@ -10,8 +9,8 @@ import { useStructureStore } from '../store/useStructureStore'
 import { usePlacementStore } from '../store/usePlacementStore'
 import { useVolumeStore } from '../store/useVolumeStore'
 import { useAuth } from '../hooks/useAuth'
-import Axios from '../utils/Axios'
 import { useLocation } from 'react-router-dom'
+import SidebarItem from './SidebarItem'
 interface SidebarProps {
   ratingMode?: boolean
 }
@@ -41,6 +40,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
   // }, [token])
   // Initialize masks when volume data loads (we did it here becuase we have some predefined structures)
   useEffect(() => {
+    console.log("my structures",mystructures)
     if (volumeData && volumeData.dims) {
       // console.log('Volume loaded, initializing masks')
       mystructures.forEach(async structure => {

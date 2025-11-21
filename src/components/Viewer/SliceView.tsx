@@ -14,9 +14,6 @@ import { useStructureStore } from '../../store/useStructureStore'
 import { usePlacementStore } from '../../store/usePlacementStore'
 import { useMaskStore } from '../../store/useMaskStore'
 import { useViewerStore } from '../../store/useViewerStore'
-import Axios from '../../utils/Axios'
-import { useAuth } from '../../hooks/useAuth'
-import { set } from 'lodash'
 
 type Orientation = 'axial' | 'coronal' | 'sagittal'
 
@@ -53,7 +50,7 @@ export function SliceView({
     active: placementActive,
     structureId: placementStructureId,
     color: placementColor,
-    isEditing: isEditingCoordinate,
+    // isEditing: isEditingCoordinate,
     completePlacement
   } = usePlacementStore()
 
@@ -70,7 +67,6 @@ export function SliceView({
   deleteRuler,
   updateRulerPoint,
   setRulerDragging,
-  clearActiveRuler
 } = useMaskStore()
 
   const {
@@ -94,7 +90,6 @@ export function SliceView({
   const [crosshairPos, setCrosshairPos] = useState({ x: 0.5, y: 0.5, pixelX: 0, pixelY: 0 })
   const [hoverCrosshair, setHoverCrosshair] = useState<{ x: number; y: number } | null>(null)
   const [rulerHoverPoint, setRulerHoverPoint] = useState<{ x: number, y: number } | null>(null)
-  const { token } = useAuth()
 
   const lastPosRef = useRef<{ x: number; y: number } | null>(null)
   const hasHistorySaved = useRef(false)
@@ -123,7 +118,7 @@ export function SliceView({
   useEffect(() => {
     // console.log('Setting up maskUpdated listener in SliceView')
 
-    const handleMaskUpdate = (structureId: number) => {
+    const handleMaskUpdate = () => {
       // console.log('SliceView received maskUpdated for structure', structureId)
       forceUpdate()
     }
@@ -292,8 +287,8 @@ export function SliceView({
     if (!externalPreviewCoord || !placementStructureId) return
     // here we upload the coordinates to the backend 
     console.log("Storing the new coordinates in the database ...", externalPreviewCoord)
-    
-    addCoordinate(placementStructureId, externalPreviewCoord)
+    const modality = localStorage.getItem("modality")!
+    addCoordinate(placementStructureId, externalPreviewCoord, modality)
 
     onPreviewCoordinateChange?.(null)
     completePlacement()
@@ -951,7 +946,6 @@ if (tool === 'ruler') {
                   height={actualHeight}
                   color={structureColor}
                   opacity={maskOpacity}
-                  scale={viewState.scale}
                   offsetX={viewState.offsetX}
                   offsetY={viewState.offsetY}
                 />

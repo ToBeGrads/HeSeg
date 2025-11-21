@@ -2,6 +2,7 @@
 import { openDB } from 'idb'
 import { save_mask } from './functionalities'
 import { debounce } from 'lodash'
+// import { useMaskStore } from '../store/useMaskStore'
 
 export interface StoredMask {
   opacity: number
@@ -12,6 +13,8 @@ export interface StoredMask {
 
 const DB_NAME = 'BrainSegMaskDB'
 const STORE_NAME = 'masks'
+
+
 
 
 
@@ -26,10 +29,10 @@ export async function getDB() {
 }
 const debouncedUploadMask = debounce(save_mask, 1000)
 
-export async function saveMask(structureId: number, patient_id: string, dims: [number, number, number], data: Uint8Array) {
+export async function saveMask(structureId: number, patient_id: string, dims: [number, number, number], data: Uint8Array, modality : string) {
   const db = await getDB()
   const blob = new Blob([data.buffer])
-  await db.put(STORE_NAME, { dims, blob }, `${patient_id}-${structureId}`)
+  await db.put(STORE_NAME, { dims, blob }, `${patient_id}-${structureId}-${modality}`)
   console.log(`Saved ${patient_id}-${structureId} in IndexedDB`)
 
   //update the backend with the changes 
@@ -39,7 +42,8 @@ export async function saveMask(structureId: number, patient_id: string, dims: [n
 export async function loadMask(structureId: number): Promise<StoredMask | null> {
   const db = await getDB()
   const patient_id = localStorage.getItem('selected_patient')
-  const record = await db.get(STORE_NAME, `${patient_id}-${structureId}`)
+  const modality = localStorage.getItem("modality")!
+  const record = await db.get(STORE_NAME, `${patient_id}-${structureId}-${modality}`)
   if (!record) return null
 
   const arrayBuffer = await record.blob.arrayBuffer()
@@ -53,8 +57,9 @@ export async function loadMask(structureId: number): Promise<StoredMask | null> 
 
 export async function deleteMask(structureId: number) {
   const db = await getDB()
+  const modality = localStorage.getItem("modality")!
   const patient_id = localStorage.getItem("selected_patient")
-  await db.delete(STORE_NAME, `${patient_id}-${structureId}`)
+  await db.delete(STORE_NAME, `${patient_id}-${structureId}-${modality}`)
   console.log(`Deleted ${patient_id}-${structureId} from IndexedDB`)
 }
 

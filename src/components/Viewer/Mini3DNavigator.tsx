@@ -1,6 +1,6 @@
 // src/components/Viewer/Mini3DNavigator.tsx
 import { useEffect, useRef, useState } from 'react'
-import { Niivue, NVImage } from '@niivue/niivue'
+import { Niivue } from '@niivue/niivue'
 import { useVolumeStore } from '../../store/useVolumeStore'
 import { useViewerStore } from '../../store/useViewerStore'
 import { FiX, FiMaximize2, FiMinimize2 } from 'react-icons/fi'

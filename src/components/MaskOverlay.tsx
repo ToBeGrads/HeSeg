@@ -6,7 +6,6 @@ interface MaskOverlayProps {
   height: number
   color: string
   opacity: number
-  scale: number
   offsetX: number
   offsetY: number
 }
@@ -17,9 +16,6 @@ export function MaskOverlay({
   height, 
   color, 
   opacity,
-  scale,
-  offsetX,
-  offsetY 
 }: MaskOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 

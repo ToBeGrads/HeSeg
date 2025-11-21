@@ -1,4 +1,4 @@
-import { Niivue, NVImage } from '@niivue/niivue'
+import { NVImage } from '@niivue/niivue'
 import type { VolumeData } from '../types'
 
 export interface MedicalImageData {
@@ -18,7 +18,11 @@ export class MedicalImageLoader {
     try {
       // console.log('Loading NIfTI file:', filePath);
       
-      const nvImage = await NVImage.loadFromUrl({ url: filePath});
+      const nvImage = await NVImage.loadFromUrl({ url: filePath, 
+  //       headers: {
+  //       'ngrok-skip-browser-warning': '69420' 
+  // } 
+});
       
       if (!nvImage || !nvImage.img) {
         throw new Error('Failed to load NIfTI image - no image data');
@@ -28,7 +32,7 @@ export class MedicalImageLoader {
       // console.log('  Header dims:', nvImage.hdr?.dims);
       // console.log('  Datatype:', nvImage.hdr?.datatypeCode);
       
-      const dims = nvImage.hdr?.dims?.slice(1, 4) || [256, 256, 180];
+      const dims = (nvImage.hdr?.dims?.slice(1, 4) as [number, number, number]) || [256, 256, 180];
       const voxelSize = nvImage.hdr?.pixDims?.slice(1, 4) || [1, 1, 1];
     
 

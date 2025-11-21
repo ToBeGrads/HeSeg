@@ -1,5 +1,5 @@
 // src/components/Viewer/ViewerTopBar.tsx
-import { FiSettings, FiGrid, FiSquare, FiLayers, FiEye } from 'react-icons/fi'
+import { FiSettings, FiGrid, FiSquare, FiEye } from 'react-icons/fi'
 import { useVolumeStore } from '../../store/useVolumeStore'
 import { useViewerStore } from '../../store/useViewerStore'
 import { useMaskStore } from '../../store/useMaskStore';

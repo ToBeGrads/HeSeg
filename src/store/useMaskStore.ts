@@ -102,6 +102,7 @@ export const useMaskStore = create<MaskState>()(
         console.log(`Tool: ${tool}`)
       },
 
+
       // Set brush size
       setBrushSize: (size) => {
         set({ brushSize: size }, false, 'setBrushSize')

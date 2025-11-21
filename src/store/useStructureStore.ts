@@ -2,11 +2,11 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Structure, Coordinate } from '../types'
-import { DEFAULT_STRUCTURES } from '../utils/constants'
 import { maskManager } from '../utils/MaskManager'
 import { useVolumeStore } from '../store/useVolumeStore'
 import Axios from '../utils/Axios'
 import { AddCoordinates, AddStructure, GetMyStructures } from '../utils/functionalities'
+import axios from 'axios'
 
 // Extended Structure type with annotator support
 export interface ExtendedStructure extends Structure {
@@ -28,7 +28,7 @@ interface StructureState {
   addStructure: (id: number, title: string, color: string, annotator?: 'annotator1' | 'annotator2') => void
   updateStructure: (id: number, updates: Partial<ExtendedStructure>) => void
   deleteStructure: (id: number) => void
-  addCoordinate: (structureId: number, coordinate: Coordinate) => void
+  addCoordinate: (structureId: number, coordinate: Coordinate, modality : string) => void
   updateCoordinates: (structureId: number, coordinates: Coordinate[]) => void
   deleteCoordinate: (structureId: number, index: number) => void
   getStructure: (id: number) => ExtendedStructure | undefined
@@ -86,16 +86,10 @@ export const useStructureStore = create<StructureState>()(
             }
           }
         } catch (err) {
-          if (err.response) {
-            // Backend responded with a status code not in 2xx
-            if (err.response.status === 400) {
-              console.error('Bad request:', err.response.data.message);
-            } else {
-              console.error('Other error:', err.response.status, err.response.data);
-            }
+          if (axios.isAxiosError(err)) {
+            console.log("API error:", err.response?.data);
           } else {
-            // Network or unexpected error
-            console.error('Request failed:', err.message);
+            console.error("Unknown error:", err);
           }
         }
       },
@@ -123,7 +117,12 @@ export const useStructureStore = create<StructureState>()(
           }
         } catch (err) {
           // console.error('Error fetching structures:', err)
-          console.error('Error fetching structures')
+          console.log('Error fetching structures')
+          if (axios.isAxiosError(err)) {
+            console.log("API error:", err.response?.data);
+          } else {
+            console.error("Unknown error:", err);
+          }
         }
       },
       // fetch my structures 
@@ -152,8 +151,12 @@ export const useStructureStore = create<StructureState>()(
             // console.log("this what front see from my structures", res.data)
           }
         } catch (err) {
-          // console.error('Error fetching structures:', err)
-          console.error('Error fetching structures')
+          console.log('Error fetching structures')
+          if (axios.isAxiosError(err)) {
+            console.log("API error:", err.response?.data);
+          } else {
+            console.error("Unknown error:", err);
+          }
         }
       },
       // Update structure
@@ -187,9 +190,9 @@ export const useStructureStore = create<StructureState>()(
       },
 
       // Add coordinate to structure
-      addCoordinate: async (structureId, coordinate) => {
+      addCoordinate: async (structureId, coordinate, modality) => {
         try {
-          const res = await AddCoordinates(coordinate, structureId)
+          const res = await AddCoordinates(coordinate, structureId, modality)
           // console.log("from add coordinates", res.data)
           if (res.status == 200) {
             // console.log(res.data.message)
@@ -209,9 +212,14 @@ export const useStructureStore = create<StructureState>()(
           } else {
             // console.log(res.data.message);
           }
-        } catch (e) {
+        } catch (err) {
           // console.error('error saveing coordinates', e)
-          console.error('error adding coordinates')
+          console.log('error adding coordinates')
+          if (axios.isAxiosError(err)) {
+            console.log("API error:", err.response?.data);
+          } else {
+            console.error("Unknown error:", err);
+          }
         }
 
 
@@ -220,7 +228,7 @@ export const useStructureStore = create<StructureState>()(
 
       // Update all coordinates for a structure
       updateCoordinates: async (structureId, coordinates) => {
-        // send reques to update to backend 
+        // send request to update to backend 
         try {
           const res = await Axios.post(
             "segment/UpdateCoordinates",
@@ -251,9 +259,14 @@ export const useStructureStore = create<StructureState>()(
           } else {
             // console.log(res.data.message);
           }
-        } catch (e) {
+        } catch (err) {
           // console.error('error saveing coordinates', e)
-          console.error('error updating coordinates')
+          console.log('error updating coordinates')
+          if (axios.isAxiosError(err)) {
+            console.log("API error:", err.response?.data);
+          } else {
+            console.error("Unknown error:", err);
+          }
         }
         // console.log(`Coordinates updated for structure ${structureId}`)
       },

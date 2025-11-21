@@ -8,7 +8,6 @@ import { maskManager } from '../../utils/MaskManager'
 // Import stores
 import { useVolumeStore } from '../../store/useVolumeStore'
 import { useStructureStore } from '../../store/useStructureStore'
-import { usePlacementStore } from '../../store/usePlacementStore'
 import { useMaskStore } from '../../store/useMaskStore'
 import { useViewerStore } from '../../store/useViewerStore'
 
@@ -19,12 +18,13 @@ import { MosaicView } from './MosaicView'
 import { ThreeDView } from './ThreeDView'
 import SliceView from './SliceView'
 import { Mini3DNavigator } from './Mini3DNavigator'
+import type { Orientation } from '../../types'
 
 // Import hooks
 import { useSliceExtraction } from './hooks/useSliceExtraction'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
-type ViewType = 'axial' | 'coronal' | 'sagittal'
+// type ViewType = 'axial' | 'coronal' | 'sagittal'
 
 function AdvancedMRIViewer() {
   // ========================
@@ -33,9 +33,9 @@ function AdvancedMRIViewer() {
   const volumeData = useVolumeStore((state) => state.volumeData)
   const structures = useStructureStore((state) => state.mystructures)
   
-  const {
-    structureId: placementStructureId
-  } = usePlacementStore()
+  // const {
+  //   structureId: placementStructureId
+  // } = usePlacementStore()
   
   const {
     activeStructureId,
@@ -57,7 +57,7 @@ function AdvancedMRIViewer() {
   // ========================
   // LOCAL STATE
   // ========================
-  const [viewOrientation, setViewOrientation] = useState<ViewType>("axial")
+  const [viewOrientation, setViewOrientation] = useState<Orientation>("axial");
   const [voxelCoords, setVoxelCoords] = useState({ x: 0, y: 0, z: 0 })
   const [previewCoordinate, setPreviewCoordinate] = useState<any>(null)
   const [showMini3D, setShowMini3D] = useState(true)
@@ -72,7 +72,7 @@ function AdvancedMRIViewer() {
   // ========================
   // HANDLERS
   // ========================
-  const handleSliceChange = useCallback((orientation: ViewType, direction: 'prev' | 'next') => {
+  const handleSliceChange = useCallback((orientation: Orientation, direction: 'prev' | 'next') => {
     const slices = allSlices[orientation]
     if (slices.length === 0) return
 
@@ -133,6 +133,7 @@ function AdvancedMRIViewer() {
   }
 
   const canUndo = () => {
+    console.log(viewOrientation)
     if (!activeStructureId) return false
     const currentSlice = currentSlices.axial
     return maskManager.canUndo(activeStructureId, currentSlice)
@@ -208,7 +209,7 @@ function AdvancedMRIViewer() {
 
         {viewMode === 'quad' && (
           <div className="quad-view-columns">
-            <div className="quad-column" onClick={() => setViewOrientation("axial")}>
+            <div className="quad-column" onClick={() => setViewOrientation('axial')}>
               <div className="quad-panel">
                 <div className="panel-header">
                   <span>Axial</span>

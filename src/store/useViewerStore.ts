@@ -72,7 +72,7 @@ const initialViewState: ViewState = {
 
 export const useViewerStore = create<ViewerState>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
       // Set view mode
@@ -150,8 +150,7 @@ export const useViewerStore = create<ViewerState>()(
 jumpToCoordinate: (coord) => {
   // console.log('Jumping to:', coord)
   // console.log('Setting slices:', { axial: coord.z, coronal: coord.y, sagittal: coord.x })
-  
-  set((state) => ({ 
+  set(() => ({ 
     jumpToCoord: coord,
     currentSlices: {
       axial: coord.z,
@@ -161,7 +160,7 @@ jumpToCoordinate: (coord) => {
   }), false, 'jumpToCoordinate')
   
   // Log after update
-  const newState = get()
+  // const newState = get()
   // console.log('Store updated. New slices:', newState.currentSlices)
   
   // Auto-clear after processing

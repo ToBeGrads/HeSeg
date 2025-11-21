@@ -1,6 +1,6 @@
 // src/utils/constants.ts
-export const BASEURL = "http://localhost:8000";
-
+// export const BASEURL = "https://stackless-gablewindowed-yanira.ngrok-free.dev"
+export const BASEURL = "http://127.0.0.1:8000"
 export const AVAILABLE_COLORS = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
     '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43',
@@ -10,15 +10,15 @@ export const AVAILABLE_COLORS = [
     '#FF6347', '#4169E1', '#FF1493', '#00BFFF', '#ADFF2F', 
     "#11224E", "#F87B1B"
   ]
-  export const DEFAULT_STRUCTURE_TITLES = [
-    'Caudate Nucleus',
-    'Putamen',
-    'Globus Pallidus',
-    'Subthalamic Nucleus',
-    'Thalamus',
-    'Hippocampus',
-    'Amygdala'
-  ]
+  // export const DEFAULT_STRUCTURE_TITLES = [
+  //   'Caudate Nucleus',
+  //   'Putamen',
+  //   'Globus Pallidus',
+  //   'Subthalamic Nucleus',
+  //   'Thalamus',
+  //   'Hippocampus',
+  //   'Amygdala'
+  // ]
   
   export const DEFAULT_STRUCTURES = [
     { id: 1, title: 'Brain Tissue', color: '#F54927', coordinates: [] },

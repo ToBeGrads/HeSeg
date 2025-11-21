@@ -1,5 +1,5 @@
 // src/components/SegmentationRating/SegmentationRatingPage.tsx
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './SegmentationRatingPage.css'
 import { FiEye, FiEyeOff, FiCheck, FiX, FiGrid, FiList } from 'react-icons/fi'
 
@@ -27,14 +27,11 @@ export function SegmentationRatingPage() {
   const { getStructuresByType } = useStructureStore()
   
   const {
-    viewMode,
     currentSlices,
     showSettings,
-    setCurrentSlice,
   } = useViewerStore()
 
   const {
-    ratings,
     setRating,
     getRating,
     showAnnotator1,
@@ -44,7 +41,6 @@ export function SegmentationRatingPage() {
     setShowOverlap,
     selectedStructureType,
     setSelectedStructureType,
-    selectedSlice,
     setSelectedSlice
   } = useRatingStore()
 
@@ -89,42 +85,42 @@ export function SegmentationRatingPage() {
   // ========================
   // HANDLERS
   // ========================
-  const handleSliceChange = useCallback((orientation: ViewType, direction: 'prev' | 'next') => {
-    const slices = allSlices[orientation]
-    if (!slices || slices.length === 0) return
+  // const handleSliceChange = useCallback((orientation: ViewType, direction: 'prev' | 'next') => {
+  //   const slices = allSlices[orientation]
+  //   if (!slices || slices.length === 0) return
 
-    const current = currentSlices[orientation]
-    let newSlice = current
+  //   const current = currentSlices[orientation]
+  //   let newSlice = current
 
-    if (direction === 'next') {
-      newSlice = current < slices.length - 1 ? current + 1 : current
-    } else {
-      newSlice = current > 0 ? current - 1 : current
-    }
+  //   if (direction === 'next') {
+  //     newSlice = current < slices.length - 1 ? current + 1 : current
+  //   } else {
+  //     newSlice = current > 0 ? current - 1 : current
+  //   }
 
-    if (newSlice !== current) {
-      setCurrentSlice(orientation, newSlice)
-      setSelectedSlice(newSlice)
+  //   if (newSlice !== current) {
+  //     setCurrentSlice(orientation, newSlice)
+  //     setSelectedSlice(newSlice)
 
-      if (volumeData) {
-        setVoxelCoords(prevCoords => {
-          const newCoords = { ...prevCoords }
-          switch (orientation) {
-            case 'axial':
-              newCoords.z = newSlice
-              break
-            case 'coronal':
-              newCoords.y = newSlice
-              break
-            case 'sagittal':
-              newCoords.x = newSlice
-              break
-          }
-          return newCoords
-        })
-      }
-    }
-  }, [allSlices, currentSlices, volumeData, setCurrentSlice, setSelectedSlice])
+  //     if (volumeData) {
+  //       setVoxelCoords(prevCoords => {
+  //         const newCoords = { ...prevCoords }
+  //         switch (orientation) {
+  //           case 'axial':
+  //             newCoords.z = newSlice
+  //             break
+  //           case 'coronal':
+  //             newCoords.y = newSlice
+  //             break
+  //           case 'sagittal':
+  //             newCoords.x = newSlice
+  //             break
+  //         }
+  //         return newCoords
+  //       })
+  //     }
+  //   }
+  // }, [allSlices, currentSlices, volumeData, setCurrentSlice, setSelectedSlice])
 
   const handleRatingChange = (structureId: number, rating: 'annotator1' | 'annotator2' | 'both' | 'neither') => {
     setRating(structureId, currentSlice, rating, viewOrientation)

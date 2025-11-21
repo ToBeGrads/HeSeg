@@ -2,7 +2,6 @@ import { FaChevronLeft } from "react-icons/fa"
 import { useNavigate } from 'react-router-dom'
 import './SegmentList.css'
 import { useEffect, useState } from "react"
-import Axios from "../../utils/Axios"
 import { useAuth } from "../../hooks/useAuth"
 import axios from "axios"
 import { BASEURL } from "../../utils/constants"
@@ -17,6 +16,7 @@ export default function SegmentList() {
       sex: 'male',
       age: '60',
       mri_path: '',
+      modality : 'T1',
       status: "Unfinished"
     }
   ])
@@ -28,6 +28,7 @@ export default function SegmentList() {
         const res = await axios.get(`${BASEURL}/segment/MRI_List_For_Segment`, {
           headers: {
             "Content-Type": "application/json",
+            // "ngrok-skip-browser-warning": "true",
             "Authorization": `Bearer ${token}`,
           },
         });
@@ -46,8 +47,9 @@ export default function SegmentList() {
 
   // handling clikcin g on of the elements on the list 
   const navigate = useNavigate()
-  const handle = (patient_id: string, mri_path: string) => {
+  const handle = (patient_id: string, mri_path: string, modality : string) => {
     localStorage.setItem("selected_patient", patient_id)
+    localStorage.setItem("modality",modality)
     navigate('/viewer', { state: { path: BASEURL + mri_path, patient_id: patient_id } })
 
   }
@@ -67,6 +69,7 @@ export default function SegmentList() {
             <tr>
               <th>Sex</th>
               <th>Age</th>
+              <th>Modality</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -76,10 +79,11 @@ export default function SegmentList() {
                 <tr
                   key={i}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => handle(c.patient_id, c.mri_path)}
+                  onClick={() => handle(c.patient_id, c.mri_path, c.modality)}
                 >
                   <td>{c.sex}</td>
                   <td>{c.age}</td>
+                  <td>{c.modality}</td>
                   <td>
                     <span className={`segment-status ${c.status}`}>
                       {c.status}

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { FiChevronUp, FiChevronDown } from 'react-icons/fi'
 import './EndBar.css'
-import { MedicalImageLoader, type VolumeData } from '../utils/medicalImageLoader'
+import { MedicalImageLoader } from '../utils/medicalImageLoader'
+import type { VolumeData } from '../types'
 
 type ViewType = 'axial' | 'coronal' | 'sagittal'
 

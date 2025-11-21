@@ -1,8 +1,7 @@
 // src/components/SidebarItem.tsx
-import { FiStar, FiGrid, FiEye, FiEyeOff, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import { FiStar, FiEye, FiEyeOff, FiEdit2, FiTrash2 } from 'react-icons/fi'
 import './SidebarItem.css'
 import { useState } from 'react'
-import Axios from "../utils/Axios"
 import { useMRI } from "../Context/MRIcontext"
 import { maskManager } from "../utils/MaskManager"
 import { useViewerStore } from '../store/useViewerStore'
@@ -19,6 +18,7 @@ interface SidebarItemProps {
 }
 
 function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: SidebarItemProps) {
+  console.log("side bar item")
   // ========================
   // GET STATE FROM STORES
   // ========================
@@ -133,11 +133,11 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
       
       const response = await segment(coord,currentSliceURL)
       // update the coordinates of the point to hasSegmentation True
-      console.log("the response from segment", response.data)
+      console.log("the response from segment", response!.data)
 
-      if (response.status == 200 && response.data.mask) {
+      if (response!.status == 200 && response!.data.mask) {
         console.log("Received mask from backend")
-        console.log("Mask shape:", response.data.mask_shape)
+        console.log("Mask shape:", response!.data.mask_shape)
         const existingMask = await maskManager.getMask(structureId)
         console.log("Existing mask:", existingMask)
 
@@ -151,7 +151,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
         console.log("Volume dimensions:", existingMask.dims)
 
         // Decode base64 mask
-        const maskBase64 = response.data.mask.split(',')[1]
+        const maskBase64 = response!.data.mask.split(',')[1]
         const binaryString = atob(maskBase64)
         const bytes = new Uint8Array(binaryString.length)
         for (let i = 0; i < binaryString.length; i++) {
@@ -180,7 +180,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
           const imageData = ctx.getImageData(0, 0, img.width, img.height)
 
           const sliceIndex = coord.z
-          const [dimX, dimY, dimZ] = existingMask.dims
+          const [dimX, dimY, dimZ] = existingMask.dims!
 
           console.log(`Mapping ${img.width}x${img.height} mask to ${dimX}x${dimY} volume slice ${sliceIndex}`)
 

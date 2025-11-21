@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Axios from '../../utils/Axios'
 import { AiFillQuestionCircle } from "react-icons/ai"
-import { jwtDecode } from "jwt-decode";
 // css
 import './SignIn.css'
 
@@ -16,11 +15,7 @@ export default function SignIn({ onLogin }: { onLogin: (token: string) => void }
     try {
       const res = await Axios.post('/Login/', { email :username, password })
       onLogin(res.data.access_token)
-      console.log(res.data)
-      const decoded = jwtDecode(res.data.access_token);
-      if (decoded.id){
-        console.log("Login successful, user ID:", decoded.id);
-      }
+      console.log(res.data)  
     } catch {
       setError('Invalid username or password')
     }

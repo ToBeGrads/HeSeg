@@ -7,7 +7,7 @@ import { useVolumeStore } from '../../../store/useVolumeStore'
 type Orientation = 'axial' | 'coronal' | 'sagittal'
 
 export function useSliceExtraction() {
-  // ✨ Get state directly from stores
+  // Get state directly from stores
   const volumeData = useVolumeStore((state) => state.volumeData)
   const { setCurrentSlice } = useViewerStore()
 

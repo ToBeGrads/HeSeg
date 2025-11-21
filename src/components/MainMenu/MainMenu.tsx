@@ -18,11 +18,11 @@ export default function MainMenu({
           <MdModeEdit className="mainmenu-icon" />
           <p>Segment</p>
         </div>
-        <div className="mainmenu-option" onClick={() => navigate('rate')}>
+        <div className="mainmenu-option" onClick={() => navigate('rating')}>
         <MdStarRate className="mainmenu-icon"  />
           <p>Rate</p>
         </div>
-        <div className="mainmenu-option" onClick={() => navigate('documentation')}>
+        <div className="mainmenu-option" onClick={() => navigate('Documentation')}>
           <IoDocumentTextSharp className="mainmenu-icon"  />
           <p>Documentation</p>
         </div>

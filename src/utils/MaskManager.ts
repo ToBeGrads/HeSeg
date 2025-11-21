@@ -9,8 +9,8 @@ import { createMask, Load_Mask } from './functionalities';
 export interface Mask {
   id: string
   structureId: number
-  data: Uint8Array
-  dims: [number, number, number]
+  data: Uint8Array | null
+  dims: [number, number, number] | null
   visible: boolean
   opacity: number
 }
@@ -79,15 +79,17 @@ export class MaskManager extends SimpleEventEmitter {
   // reduce the rate of saving the mask to the local database
   private debouncedSave = debounce(
     (structureId: number, patient_id: string, dims: [number, number, number], data: Uint8Array) => {
-      saveMask(structureId, patient_id, dims, data)
+      const modality = localStorage.getItem("modality")!
+      saveMask(structureId, patient_id, dims, data,modality)
     },
     250 // wait 0.5s after the last draw before saving
   )
 
   async createMask(patient_id: string, structureId: number, dims: [number, number, number]): Promise<Mask> {
     const totalVoxels = dims[0] * dims[1] * dims[2]
+    const modality = localStorage.getItem("modality")!
     const mask: Mask = {
-      id: `mask-${patient_id}-${structureId}`,
+      id: `mask-${patient_id}-${structureId}-${modality}`,
       structureId,
       data: new Uint8Array(totalVoxels),
       dims,
@@ -95,25 +97,28 @@ export class MaskManager extends SimpleEventEmitter {
       opacity: 0.2
     }
 
-    this.masks.set(`${patient_id}-${structureId}`, mask)
+    this.masks.set(`${patient_id}-${structureId}-${modality}`, mask)
     this.sliceHistory.set(structureId, {})
     this.currentSlice.set(structureId, 0)
 
     // save into local db first 
-    await saveMask(structureId, patient_id, dims, mask.data)
+    
+    await saveMask(structureId, patient_id, dims, mask.data!,modality)
     console.log(`Creating mask for structure ${structureId} in local db`, mask)
 
     // upload to the database in the backend
-    const blob = new Blob([mask.data.buffer])
+    const arrayBuffer = mask.data!.buffer as ArrayBuffer;
+    const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
     console.log("Creating the mask in the backend ...")
-    await createMask(blob, structureId, patient_id, localStorage.getItem('color')!, mask.dims)
+    await createMask(blob, structureId, patient_id, localStorage.getItem('color')!, mask.dims!)
     return mask
   }
 
   async getMask(structureId: number): Promise<Mask | null> {
     // Check in-memory first
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (mask) {
       return mask
     }
@@ -152,7 +157,7 @@ export class MaskManager extends SimpleEventEmitter {
     }
 
     // Save in memory
-    this.masks.set(`${patient_id}-${structureId}`, loadedMask)
+    this.masks.set(`${patient_id}-${structureId}-${modality}`, loadedMask)
     this.sliceHistory.set(structureId, {})
     this.currentSlice.set(structureId, 0)
 
@@ -175,32 +180,35 @@ export class MaskManager extends SimpleEventEmitter {
 
   private getSliceData(structureId: number, sliceIndex: number): Uint8Array {
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return new Uint8Array()
 
-    const [dimX, dimY, dimZ] = mask.dims
+    const [dimX, dimY] = mask.dims!
     const sliceSize = dimX * dimY
     const start = sliceIndex * sliceSize
     const end = start + sliceSize
 
-    return mask.data.slice(start, end)
+    return mask.data!.slice(start, end)
   }
 
   private setSliceData(structureId: number, sliceIndex: number, sliceData: Uint8Array): void {
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return
 
-    const [dimX, dimY] = mask.dims
+    const [dimX, dimY] = mask.dims!
     const sliceSize = dimX * dimY
     const start = sliceIndex * sliceSize
 
-    mask.data.set(sliceData, start)
+    mask.data!.set(sliceData, start)
   }
 
   saveHistory(structureId: number, sliceIndex?: number): void {
     const patient_id = localStorage.getItem('selected_patient')
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
@@ -240,9 +248,10 @@ export class MaskManager extends SimpleEventEmitter {
     // console.log(`Saved history for structure ${structureId}, slice ${currentSliceIndex}, entries: ${sliceHist.entries.length}`)
   }
 
-  undo(structureId: number, sliceIndex?: number): boolean {
+  undo(structureId: number, sliceIndex?: number ): boolean {
     const patient_id = localStorage.getItem('selected_patient')
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     const history = this.sliceHistory.get(structureId)
 
     if (!mask || !history) return false
@@ -263,7 +272,7 @@ export class MaskManager extends SimpleEventEmitter {
 
     // console.log(`Undo slice ${currentSliceIndex}, index: ${newIndex}`)
     // save to local database
-    saveMask(structureId, patient_id!, mask.dims, mask.data)
+    saveMask(structureId, patient_id!, mask.dims!, mask.data!,modality)
     // save to database backedn 
 
     this.emit('maskUpdated', structureId)
@@ -272,7 +281,8 @@ export class MaskManager extends SimpleEventEmitter {
 
   redo(structureId: number, sliceIndex?: number): boolean {
     const patient_id = localStorage.getItem('selected_patient')
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     const history = this.sliceHistory.get(structureId)
 
     if (!mask || !history) return false
@@ -292,7 +302,7 @@ export class MaskManager extends SimpleEventEmitter {
     sliceHist.currentIndex = newIndex
 
     // save to local database
-    saveMask(structureId, patient_id!, mask.dims, mask.data)
+    saveMask(structureId, patient_id!, mask.dims!, mask.data!, modality)
     // save to database backedn 
     this.emit('maskUpdated', structureId)
     return true
@@ -327,11 +337,13 @@ export class MaskManager extends SimpleEventEmitter {
     value: number,
     brushSize: number = 1
   ): void {
-    const mask = this.masks.get(`${patient_id}-${structure_id}`)
+
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structure_id}-${modality}`)
     // console.log('the mask found from update mask voxel', mask)
     if (!mask) return
 
-    const [dimX, dimY, dimZ] = mask.dims
+    const [dimX, dimY, dimZ] = mask.dims!
     const halfSize = Math.floor(brushSize / 2)
 
     // 2D brush only - no depth painting
@@ -345,7 +357,7 @@ export class MaskManager extends SimpleEventEmitter {
           const dist = Math.sqrt(dx * dx + dy * dy)
           if (dist <= halfSize) {
             const index = nx + ny * dimX + nz * dimX * dimY
-            mask.data[index] = value
+            mask.data![index] = value
           }
         }
       }
@@ -354,7 +366,7 @@ export class MaskManager extends SimpleEventEmitter {
     // console.log('Emitting maskUpdated for structure', structureId)
     // save to local database
     // console.log('from maskmanager, lin 355: the dims are', mask.dims)
-    this.debouncedSave(structure_id, patient_id, mask.dims, mask.data)
+    this.debouncedSave(structure_id, patient_id, mask.dims!, mask.data!)
     // saveMask(structureId, patient_id, mask.dims, mask.data)
 
     this.emit('maskUpdated', structure_id)
@@ -367,10 +379,11 @@ export class MaskManager extends SimpleEventEmitter {
     sliceIndex: number
   ): Uint8Array | null {
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return null
     
-    const [dimX, dimY, dimZ] = mask.dims
+    const [dimX, dimY, dimZ] = mask.dims!
     let sliceData: Uint8Array
 
     switch (orientation) {
@@ -380,7 +393,7 @@ export class MaskManager extends SimpleEventEmitter {
           for (let x = 0; x < dimX; x++) {
             const index3D = x + y * dimX + sliceIndex * dimX * dimY
             const index2D = x + y * dimX
-            sliceData[index2D] = mask.data[index3D]
+            sliceData[index2D] = mask.data![index3D]
           }
         }
         break
@@ -391,7 +404,7 @@ export class MaskManager extends SimpleEventEmitter {
           for (let x = 0; x < dimX; x++) {
             const index3D = x + sliceIndex * dimX + z * dimX * dimY
             const index2D = x + z * dimX
-            sliceData[index2D] = mask.data[index3D]
+            sliceData[index2D] = mask.data![index3D]
           }
         }
         break
@@ -402,7 +415,7 @@ export class MaskManager extends SimpleEventEmitter {
           for (let y = 0; y < dimY; y++) {
             const index3D = sliceIndex + y * dimX + z * dimX * dimY
             const index2D = y + z * dimY
-            sliceData[index2D] = mask.data[index3D]
+            sliceData[index2D] = mask.data![index3D]
           }
         }
         break
@@ -413,7 +426,8 @@ export class MaskManager extends SimpleEventEmitter {
 
   toggleVisibility(structureId: number): void {
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (mask) {
       mask.visible = !mask.visible
       this.emit('maskUpdated', structureId)
@@ -422,7 +436,8 @@ export class MaskManager extends SimpleEventEmitter {
 
   setVisibility(structureId: number, visible: boolean): void {
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const modality = localStorage.getItem("modality")!
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (mask) {
       mask.visible = visible
       this.emit('maskUpdated', structureId)
@@ -430,8 +445,9 @@ export class MaskManager extends SimpleEventEmitter {
   }
 
   deleteMask(structureId: number): void {
+    const modality = localStorage.getItem("modality")!
     const patient_id = localStorage.getItem('selected_patient')
-    this.masks.delete(`${patient_id}-${structureId}`)
+    this.masks.delete(`${patient_id}-${structureId}-${modality}`)
     this.sliceHistory.delete(structureId)
     this.currentSlice.delete(structureId)
     // save local storage
@@ -454,11 +470,12 @@ export class MaskManager extends SimpleEventEmitter {
     y: number,
     z: number
   ): number {
+    const modality = localStorage.getItem("modality")!
     const patient_id = localStorage.getItem("selected_patient")
-    const mask = this.masks.get(`${patient_id}-${structureId}`)
+    const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return 0
 
-    const [dimX, dimY, dimZ] = mask.dims
+    const [dimX, dimY, dimZ] = mask.dims!
 
     // Check bounds
     if (x < 0 || x >= dimX || y < 0 || y >= dimY || z < 0 || z >= dimZ) {
@@ -466,7 +483,7 @@ export class MaskManager extends SimpleEventEmitter {
     }
 
     const index = x + y * dimX + z * dimX * dimY
-    return mask.data[index]
+    return mask.data![index]
   }
 }
 

@@ -15,14 +15,14 @@ export interface Coordinate {
   }
   
   export interface VolumeData {
-    nvImage: any;
-    dims: number[];
-    min: number;
-    max: number;
-    voxelSize: number[];
-    scl_slope: number;
-    scl_inter: number;
-    pixDims: number[]; 
+    nvImage: any
+    dims: [number, number, number]
+    min: number
+    max: number
+    voxelSize: number[]
+    scl_slope : number 
+    scl_inter : number
+    pixDims: number[]
   }
   
   export interface Mask {
