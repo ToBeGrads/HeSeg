@@ -142,7 +142,9 @@ export async function Load_Mask(formData: FormData): Promise<MaskData> {
 
 export async function GetMyStructures(token: string, patient_id: string) {
   const res = await Axios.post('segment/mystructures',
-    { patient_id },
+    { patient_id,
+      modality: localStorage.getItem("selected_modality")!
+     },
     {
       headers: {
         Authorization: `Bearer ${token}`
@@ -153,13 +155,13 @@ export async function GetMyStructures(token: string, patient_id: string) {
 }
 
 
-export async function AddCoordinates(coordinate: Coordinate, structureId: number, modality : string) {
+export async function AddCoordinates(coordinate: Coordinate, structureId: number, modality: string) {
   const res = await Axios.post(
     "segment/AddCoordinates",
     {
       coordinates: coordinate,
       structure_id: structureId,
-      modality : modality,
+      modality: modality,
       patient_id: localStorage.getItem("selected_patient")
     },
     {
@@ -172,10 +174,10 @@ export async function AddCoordinates(coordinate: Coordinate, structureId: number
 }
 
 export async function AddStructure(newStructure: ExtendedStructure) {
-
   const res = await Axios.post(
     "segment/Addstructure",
     {
+      modality: localStorage.getItem("selected_modality")!,
       patient_id: localStorage.getItem('selected_patient'),
       structure: newStructure
     },
