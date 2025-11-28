@@ -102,7 +102,7 @@ export class MaskManager extends SimpleEventEmitter {
     this.currentSlice.set(structureId, 0)
 
     // save into local db first 
-    
+    console.log('unless you pack your bags : here are dims', dims)
     await saveMask(structureId, patient_id, dims, mask.data!,modality)
     console.log(`Creating mask for structure ${structureId} in local db`, mask)
 

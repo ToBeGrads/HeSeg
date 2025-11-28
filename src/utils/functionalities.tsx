@@ -14,10 +14,11 @@ export async function save_mask(structure_id: number, patient_id: string, blob: 
     const file = new File([blob], `mask-${structure_id}-${patient_id}.raw`, {
       type: 'application/octet-stream',
     })
-
+    const modality = localStorage.getItem("selected_modality")!
     const response = await Axios.post('segment/Update_mask', {
       file,
       'structure_id': structure_id.toString(),
+      modality,
       patient_id,
       "dims": JSON.stringify(dims)
     }, {
@@ -63,10 +64,12 @@ export async function createMask(Mask: Blob, structure_id: number, patient_id: s
     const mask = new File([Mask], `mask-${structure_id}-${patient_id}.raw`, {
       type: 'application/octet-stream',
     })
+    const modality = localStorage.getItem("selected_modality")!
     const formData = {
       mask,
       structure_id,
       patient_id,
+      modality,
       color,
       dims: JSON.stringify(dims)
     }
