@@ -1,10 +1,12 @@
 // src/types/index.ts
 
+export type RotationOption = 'none' | 'rotate90' | 'rotate180' | 'rotate270' | 'flipX' | 'flipY' | 'flipZ'
 export interface Coordinate {
     x: number
     y: number
     z: number
     hasSegmentation?: boolean
+    orientation?: 'axial' | 'coronal' | 'sagittal'
   }
   
   export interface Structure {
@@ -23,6 +25,10 @@ export interface Coordinate {
     scl_slope : number 
     scl_inter : number
     pixDims: number[]
+    originalDims?: [number, number, number]  // Store original before rotation
+  rotation?: RotationOption
+  // Keep original data reference for quality preservation
+  rawData?: Float32Array  // Full precision!
   }
   
   export interface Mask {

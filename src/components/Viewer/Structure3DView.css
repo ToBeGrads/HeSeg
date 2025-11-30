@@ -1,0 +1,259 @@
+/* src/components/Viewer/Structure3DView.css */
+
+.structure-3d-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(26, 26, 26);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toolbar */
+.structure-3d-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid rgba(125, 219, 148, 0.2);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.toolbar-btn {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(125, 219, 148, 0.3);
+  color: #7ddb94;
+  padding: 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.toolbar-btn:hover {
+  background-color: rgba(125, 219, 148, 0.2);
+  border-color: #7ddb94;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Camera Presets */
+.camera-presets {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 0.15rem;
+}
+
+.preset-btn {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+  color: #7ddb94;
+}
+
+.preset-btn.active {
+  background-color: rgba(125, 219, 148, 0.3);
+  color: #7ddb94;
+}
+
+/* Canvas */
+.structure-3d-canvas {
+  flex: 1;
+  width: 100%;
+  display: block;
+}
+
+/* Loading */
+.structure-3d-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: #7ddb94;
+  font-size: 0.85rem;
+  z-index: 20;
+}
+
+.structure-3d-loading .loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(125, 219, 148, 0.3);
+  border-radius: 50%;
+  border-top-color: #7ddb94;
+  animation: spin 1s ease-in-out infinite;
+}
+
+/* Legend */
+.structure-3d-legend {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(125, 219, 148, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: #ccc;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.legend-name {
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Info Panel */
+.structure-3d-info {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(125, 219, 148, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  color: #999;
+  font-family: 'Courier New', monospace;
+  z-index: 10;
+}
+
+.structure-3d-info span {
+  white-space: nowrap;
+}
+
+/* Direction labels */
+.direction-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .structure-3d-toolbar {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .camera-presets {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+  
+  .preset-btn {
+    flex: 1;
+    text-align: center;
+  }
+  
+  .structure-3d-legend {
+    max-width: 120px;
+  }
+  
+  .structure-3d-info {
+    font-size: 0.6rem;
+  }
+}
+
+/* Add to Structure3DView.css */
+
+/* Brain opacity control in toolbar */
+.brain-opacity-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #7ddb94;
+}
+
+.brain-opacity-control input[type="range"] {
+  width: 80px;
+  accent-color: #7ddb94;
+  height: 4px;
+}
+
+.brain-opacity-control span:last-child {
+  min-width: 30px;
+  color: #aaa;
+  font-family: 'Courier New', monospace;
+}
+
+/* Controls hint */
+.controls-hint {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #888;
+  font-size: 0.65rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.structure-3d-view:hover .controls-hint {
+  opacity: 0;
+}
+

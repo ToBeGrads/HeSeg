@@ -115,40 +115,64 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   const handleGenerateCoordinate = async (index: number) => {
     setIsGenerating(true)
     setLoadingIndex(index)
-
+  
     try {
       console.log(`Generating mask for coordinate ${index}`)
       const coord = coordinates[index]
+      const orientation = coord.orientation || 'axial' // Get the orientation!
+      
       console.log('Jumping to coordinate before generating:', coord)
+      console.log('Orientation:', orientation)
       jumpToCoordinate(coord)
-
+  
       if (!currentSliceURL) {
         console.error('No slice URL available')
         setIsGenerating(false)
         setLoadingIndex(null)
         return
       }
-      console.log(`Coordinate: x=${coord.x}, y=${coord.y}, z=${coord.z}`)
+  
+      // Calculate the correct 2D pixel coordinates for SAM based on orientation
+      let samCoords = { x: coord.x, y: coord.y, z: coord.z }
       
-      const response = await segment(coord,currentSliceURL)
-      // update the coordinates of the point to hasSegmentation True
+      // Get volume dimensions from maskManager
+      const existingMask = await maskManager.getMask(structureId)
+      if (!existingMask || !existingMask.dims) {
+        console.error("No mask exists for structure", structureId)
+        setIsGenerating(false)
+        setLoadingIndex(null)
+        return
+      }
+      
+      const [dimX, dimY, dimZ] = existingMask.dims
+      
+      // Convert 3D voxel coords to 2D pixel coords for SAM
+      switch (orientation) {
+        case 'axial':
+          // pixelX = voxelX, pixelY = voxelY
+          samCoords = { x: coord.x, y: coord.y, z: coord.z }
+          break
+        case 'coronal':
+          // pixelX = voxelX, pixelY = dimZ - 1 - voxelZ (Z is flipped)
+          samCoords = { x: coord.x, y: dimZ - 1 - coord.z, z: coord.y }
+          break
+        case 'sagittal':
+          // pixelX = voxelY, pixelY = dimZ - 1 - voxelZ (Z is flipped)
+          samCoords = { x: coord.y, y: dimZ - 1 - coord.z, z: coord.x }
+          break
+      }
+      
+      console.log(`SAM Coordinates: x=${samCoords.x}, y=${samCoords.y}`)
+      
+      const response = await segment(samCoords, currentSliceURL)
       console.log("the response from segment", response!.data)
-
+  
       if (response!.status == 200 && response!.data.mask) {
         console.log("Received mask from backend")
         console.log("Mask shape:", response!.data.mask_shape)
-        const existingMask = await maskManager.getMask(structureId)
-        console.log("Existing mask:", existingMask)
-
-        if (!existingMask) {
-          console.error("No mask exists for structure", structureId)
-          setIsGenerating(false)
-          setLoadingIndex(null)
-          return
-        }
-
+  
         console.log("Volume dimensions:", existingMask.dims)
-
+  
         // Decode base64 mask
         const maskBase64 = response!.data.mask.split(',')[1]
         const binaryString = atob(maskBase64)
@@ -156,91 +180,128 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i)
         }
-
+  
         const blob = new Blob([bytes], { type: 'image/png' })
         const img = new Image()
         img.src = URL.createObjectURL(blob)
-
+  
         img.onload = () => {
           console.log(`Loaded mask image: ${img.width}x${img.height}`)
           const canvas = document.createElement('canvas')
           canvas.width = img.width
           canvas.height = img.height
           const ctx = canvas.getContext('2d')
-
+  
           if (!ctx) {
             console.error('No canvas context')
             setIsGenerating(false)
             setLoadingIndex(null)
             return
           }
-
+  
           ctx.drawImage(img, 0, 0)
           const imageData = ctx.getImageData(0, 0, img.width, img.height)
-
-          const sliceIndex = coord.z
-          const [dimX, dimY, dimZ] = existingMask.dims!
-
-          console.log(`Mapping ${img.width}x${img.height} mask to ${dimX}x${dimY} volume slice ${sliceIndex}`)
-
+  
+          // Get the correct slice index based on orientation
+          let sliceIndex: number
+          switch (orientation) {
+            case 'axial':
+              sliceIndex = coord.z
+              break
+            case 'coronal':
+              sliceIndex = coord.y
+              break
+            case 'sagittal':
+              sliceIndex = coord.x
+              break
+            default:
+              sliceIndex = coord.z
+          }
+  
+          console.log(`Mapping ${img.width}x${img.height} mask to volume slice ${sliceIndex} (${orientation})`)
+  
           // Save history before modifying
           maskManager.setCurrentSlice(structureId, sliceIndex)
           if (!maskManager.canUndo(structureId, sliceIndex)) {
             maskManager.saveHistory(structureId, sliceIndex)
           }
-
+  
           let pixelsAdded = 0
-
-          // Map mask pixels to volume
+          const patient_id = localStorage.getItem('selected_patient')!
+  
+          // Map mask pixels to volume based on orientation
           for (let maskY = 0; maskY < img.height; maskY++) {
             for (let maskX = 0; maskX < img.width; maskX++) {
               const idx = (maskY * img.width + maskX) * 4
               const pixelValue = imageData.data[idx]
-
+  
               if (pixelValue > 128) {
-                const voxelX = maskX
-                const voxelY = maskY
-                const voxelZ = sliceIndex
-
+                let voxelX: number, voxelY: number, voxelZ: number
+  
+                switch (orientation) {
+                  case 'axial':
+                    // maskX → voxelX, maskY → voxelY, sliceIndex → voxelZ
+                    voxelX = maskX
+                    voxelY = maskY
+                    voxelZ = sliceIndex
+                    break
+                  case 'coronal':
+                    // maskX → voxelX, maskY → voxelZ (flipped), sliceIndex → voxelY
+                    voxelX = maskX
+                    voxelY = sliceIndex
+                    voxelZ = dimZ - 1 - maskY  // Flip Z back
+                    break
+                  case 'sagittal':
+                    // maskX → voxelY, maskY → voxelZ (flipped), sliceIndex → voxelX
+                    voxelX = sliceIndex
+                    voxelY = maskX
+                    voxelZ = dimZ - 1 - maskY  // Flip Z back
+                    break
+                  default:
+                    voxelX = maskX
+                    voxelY = maskY
+                    voxelZ = sliceIndex
+                }
+  
+                // Bounds check
                 if (voxelX >= 0 && voxelX < dimX &&
-                  voxelY >= 0 && voxelY < dimY &&
-                  voxelZ >= 0 && voxelZ < dimZ) {
-
-                  maskManager.updateMaskVoxel(structureId,localStorage.getItem('selected_patient')!, voxelX, voxelY, voxelZ, 255, 1)
+                    voxelY >= 0 && voxelY < dimY &&
+                    voxelZ >= 0 && voxelZ < dimZ) {
+                  maskManager.updateMaskVoxel(structureId, patient_id, voxelX, voxelY, voxelZ, 255, 1)
                   pixelsAdded++
                 }
               }
             }
           }
-
-          // console.log(`Added ${pixelsAdded} pixels to mask`)
-
+  
+          console.log(`Added ${pixelsAdded} pixels to mask`)
+  
           // Save history after modification
           maskManager.saveHistory(structureId, sliceIndex)
-
+  
           // Make mask visible if not already
           if (!maskVisible) {
             maskManager.setVisibility(structureId, true)
             toggleMaskVisibility(structureId)
           }
-
+  
           // Mark coordinate as having segmentation
           const updatedCoordinates = [...coordinates]
           updatedCoordinates[index] = { ...coord, hasSegmentation: true }
           updateCoordinates(structureId, updatedCoordinates)
-
+  
           URL.revokeObjectURL(img.src)
           setIsGenerating(false)
           setLoadingIndex(null)
         }
-
+  
         img.onerror = () => {
           console.error('Failed to load mask image')
           URL.revokeObjectURL(img.src)
           setIsGenerating(false)
           setLoadingIndex(null)
         }
-
+  
       } else {
         console.error('No mask in response')
         setIsGenerating(false)

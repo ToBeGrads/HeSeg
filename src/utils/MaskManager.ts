@@ -3,9 +3,6 @@ import { saveMask, deleteMask, loadMask } from './MaskDB';
 import { debounce } from 'lodash'
 import { createMask, Load_Mask } from './functionalities';
 
-
-
-
 export interface Mask {
   id: string
   structureId: number
@@ -18,6 +15,7 @@ export interface Mask {
 interface HistoryEntry {
   data: Uint8Array
   timestamp: number
+  orientation: 'axial' | 'coronal' | 'sagittal'
 }
 
 interface SliceHistory {
@@ -74,6 +72,7 @@ export class MaskManager extends SimpleEventEmitter {
   private masks: Map<string, Mask> = new Map()
   private sliceHistory: Map<number, SliceHistory> = new Map()
   private currentSlice: Map<number, number> = new Map()
+  private currentOrientation: Map<number, 'axial' | 'coronal' | 'sagittal'> = new Map()
   private maxHistorySize = 50
 
   // reduce the rate of saving the mask to the local database
@@ -84,6 +83,21 @@ export class MaskManager extends SimpleEventEmitter {
     },
     250 // wait 0.5s after the last draw before saving
   )
+
+  setCurrentSlice(structureId: number, sliceIndex: number, orientation?: 'axial' | 'coronal' | 'sagittal'): void {
+    this.currentSlice.set(structureId, sliceIndex)
+    if (orientation) {
+      this.currentOrientation.set(structureId, orientation)
+    }
+  }
+
+  getCurrentSlice(structureId: number): number {
+    return this.currentSlice.get(structureId) ?? 0
+  }
+
+  getCurrentOrientation(structureId: number): 'axial' | 'coronal' | 'sagittal' {
+    return this.currentOrientation.get(structureId) ?? 'axial'
+  }
 
   async createMask(patient_id: string, structureId: number, dims: [number, number, number]): Promise<Mask> {
     const totalVoxels = dims[0] * dims[1] * dims[2]
@@ -187,41 +201,131 @@ export class MaskManager extends SimpleEventEmitter {
     return this.currentSlice.get(structureId) || 0
   }
 
-  private getSliceData(structureId: number, sliceIndex: number): Uint8Array {
+  // Get slice data for ANY orientation
+  private getSliceData(
+    structureId: number, 
+    sliceIndex: number, 
+    orientation: 'axial' | 'coronal' | 'sagittal' = 'axial'
+  ): Uint8Array {
     const patient_id = localStorage.getItem("selected_patient")
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
-    if (!mask) return new Uint8Array()
+    if (!mask || !mask.data || !mask.dims) return new Uint8Array(0)
 
-    const [dimX, dimY] = mask.dims!
-    const sliceSize = dimX * dimY
-    const start = sliceIndex * sliceSize
-    const end = start + sliceSize
+    const [dimX, dimY, dimZ] = mask.dims
 
-    return mask.data!.slice(start, end)
+    switch (orientation) {
+      case 'axial': {
+        // Z slice: extract X-Y plane at sliceIndex
+        const sliceSize = dimX * dimY
+        const sliceData = new Uint8Array(sliceSize)
+        for (let y = 0; y < dimY; y++) {
+          for (let x = 0; x < dimX; x++) {
+            const index3D = x + y * dimX + sliceIndex * dimX * dimY
+            const index2D = x + y * dimX
+            sliceData[index2D] = mask.data[index3D]
+          }
+        }
+        return sliceData
+      }
+      case 'coronal': {
+        // Y slice: extract X-Z plane at sliceIndex
+        const sliceSize = dimX * dimZ
+        const sliceData = new Uint8Array(sliceSize)
+        for (let z = 0; z < dimZ; z++) {
+          for (let x = 0; x < dimX; x++) {
+            const index3D = x + sliceIndex * dimX + z * dimX * dimY
+            const index2D = x + z * dimX
+            sliceData[index2D] = mask.data[index3D]
+          }
+        }
+        return sliceData
+      }
+      case 'sagittal': {
+        // X slice: extract Y-Z plane at sliceIndex
+        const sliceSize = dimY * dimZ
+        const sliceData = new Uint8Array(sliceSize)
+        for (let z = 0; z < dimZ; z++) {
+          for (let y = 0; y < dimY; y++) {
+            const index3D = sliceIndex + y * dimX + z * dimX * dimY
+            const index2D = y + z * dimY
+            sliceData[index2D] = mask.data[index3D]
+          }
+        }
+        return sliceData
+      }
+    }
   }
 
-  private setSliceData(structureId: number, sliceIndex: number, sliceData: Uint8Array): void {
+  // Set slice data for ANY orientation
+  private setSliceData(
+    structureId: number, 
+    sliceIndex: number, 
+    sliceData: Uint8Array,
+    orientation: 'axial' | 'coronal' | 'sagittal' = 'axial'
+  ): void {
     const patient_id = localStorage.getItem("selected_patient")
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
-    if (!mask) return
+    if (!mask || !mask.data || !mask.dims) return
 
-    const [dimX, dimY] = mask.dims!
-    const sliceSize = dimX * dimY
-    const start = sliceIndex * sliceSize
+    const [dimX, dimY, dimZ] = mask.dims
 
-    mask.data!.set(sliceData, start)
+    switch (orientation) {
+      case 'axial': {
+        // Z slice: write X-Y plane at sliceIndex
+        for (let y = 0; y < dimY; y++) {
+          for (let x = 0; x < dimX; x++) {
+            const index3D = x + y * dimX + sliceIndex * dimX * dimY
+            const index2D = x + y * dimX
+            mask.data[index3D] = sliceData[index2D]
+          }
+        }
+        break
+      }
+      case 'coronal': {
+        // Y slice: write X-Z plane at sliceIndex
+        for (let z = 0; z < dimZ; z++) {
+          for (let x = 0; x < dimX; x++) {
+            const index3D = x + sliceIndex * dimX + z * dimX * dimY
+            const index2D = x + z * dimX
+            mask.data[index3D] = sliceData[index2D]
+          }
+        }
+        break
+      }
+      case 'sagittal': {
+        // X slice: write Y-Z plane at sliceIndex
+        for (let z = 0; z < dimZ; z++) {
+          for (let y = 0; y < dimY; y++) {
+            const index3D = sliceIndex + y * dimX + z * dimX * dimY
+            const index2D = y + z * dimY
+            mask.data[index3D] = sliceData[index2D]
+          }
+        }
+        break
+      }
+    }
   }
 
-  saveHistory(structureId: number, sliceIndex?: number): void {
+  // Updated saveHistory with orientation
+  saveHistory(
+    structureId: number, 
+    sliceIndex?: number,
+    orientation?: 'axial' | 'coronal' | 'sagittal'
+  ): void {
     const patient_id = localStorage.getItem('selected_patient')
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     if (!mask) return
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
-    const sliceData = this.getSliceData(structureId, currentSliceIndex)
+    const currentOrientation = orientation ?? this.getCurrentOrientation(structureId)
+    
+    // Create a unique key for this slice+orientation combo
+    const historyKey = `${currentOrientation}-${currentSliceIndex}`
+    
+    const sliceData = this.getSliceData(structureId, currentSliceIndex, currentOrientation)
 
     let history = this.sliceHistory.get(structureId)
     if (!history) {
@@ -229,14 +333,14 @@ export class MaskManager extends SimpleEventEmitter {
       this.sliceHistory.set(structureId, history)
     }
 
-    if (!history[currentSliceIndex]) {
-      history[currentSliceIndex] = {
+    if (!history[historyKey]) {
+      history[historyKey] = {
         entries: [],
         currentIndex: -1
       }
     }
 
-    const sliceHist = history[currentSliceIndex]
+    const sliceHist = history[historyKey]
 
     // Remove any future history if we're not at the end
     sliceHist.entries = sliceHist.entries.slice(0, sliceHist.currentIndex + 1)
@@ -244,143 +348,176 @@ export class MaskManager extends SimpleEventEmitter {
     // Add new state
     sliceHist.entries.push({
       data: new Uint8Array(sliceData),
-      timestamp: Date.now()
+      orientation: currentOrientation
     })
 
     // Limit history size
     if (sliceHist.entries.length > this.maxHistorySize) {
       sliceHist.entries.shift()
     } else {
-      sliceHist.currentIndex = sliceHist.entries.length - 1
+      sliceHist.currentIndex++
     }
-
-    // console.log(`Saved history for structure ${structureId}, slice ${currentSliceIndex}, entries: ${sliceHist.entries.length}`)
   }
 
-  undo(structureId: number, sliceIndex?: number ): boolean {
+  // Updated undo with orientation
+  undo(
+    structureId: number, 
+    sliceIndex?: number,
+    orientation?: 'axial' | 'coronal' | 'sagittal'
+  ): boolean {
     const patient_id = localStorage.getItem('selected_patient')
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     const history = this.sliceHistory.get(structureId)
-
     if (!mask || !history) return false
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
-    const sliceHist = history[currentSliceIndex]
-
+    const currentOrientation = orientation ?? this.getCurrentOrientation(structureId)
+    const historyKey = `${currentOrientation}-${currentSliceIndex}`
+    
+    const sliceHist = history[historyKey]
     if (!sliceHist || sliceHist.currentIndex <= 0) {
-      // console.log(`Cannot undo: no history for slice ${currentSliceIndex}`)
       return false
     }
 
     const newIndex = sliceHist.currentIndex - 1
-    const restoredData = sliceHist.entries[newIndex].data
-
-    this.setSliceData(structureId, currentSliceIndex, restoredData)
+    const entry = sliceHist.entries[newIndex]
+    
+    this.setSliceData(structureId, currentSliceIndex, entry.data, currentOrientation)
     sliceHist.currentIndex = newIndex
 
-    // console.log(`Undo slice ${currentSliceIndex}, index: ${newIndex}`)
-    // save to local database
-    saveMask(structureId, patient_id!, mask.dims!, mask.data!,modality)
-    // save to database backedn 
-
+    // Save to local database
+    saveMask(structureId, patient_id!, mask.dims!, mask.data!, modality)
     this.emit('maskUpdated', structureId)
     return true
   }
 
-  redo(structureId: number, sliceIndex?: number): boolean {
+  // Updated redo with orientation
+  redo(
+    structureId: number, 
+    sliceIndex?: number,
+    orientation?: 'axial' | 'coronal' | 'sagittal'
+  ): boolean {
     const patient_id = localStorage.getItem('selected_patient')
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
     const history = this.sliceHistory.get(structureId)
-
     if (!mask || !history) return false
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
-    const sliceHist = history[currentSliceIndex]
-
+    const currentOrientation = orientation ?? this.getCurrentOrientation(structureId)
+    const historyKey = `${currentOrientation}-${currentSliceIndex}`
+    
+    const sliceHist = history[historyKey]
     if (!sliceHist || sliceHist.currentIndex >= sliceHist.entries.length - 1) {
-      // console.log(`Cannot redo: no future history for slice ${currentSliceIndex}`)
       return false
     }
 
     const newIndex = sliceHist.currentIndex + 1
-    const restoredData = sliceHist.entries[newIndex].data
-
-    this.setSliceData(structureId, currentSliceIndex, restoredData)
+    const entry = sliceHist.entries[newIndex]
+    
+    this.setSliceData(structureId, currentSliceIndex, entry.data, currentOrientation)
     sliceHist.currentIndex = newIndex
 
-    // save to local database
+    // Save to local database
     saveMask(structureId, patient_id!, mask.dims!, mask.data!, modality)
-    // save to database backedn 
     this.emit('maskUpdated', structureId)
     return true
   }
 
-  canUndo(structureId: number, sliceIndex?: number): boolean {
+  // Updated canUndo with orientation
+  canUndo(
+    structureId: number, 
+    sliceIndex?: number,
+    orientation?: 'axial' | 'coronal' | 'sagittal'
+  ): boolean {
     const history = this.sliceHistory.get(structureId)
     if (!history) return false
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
-    const sliceHist = history[currentSliceIndex]
-
+    const currentOrientation = orientation ?? this.getCurrentOrientation(structureId)
+    const historyKey = `${currentOrientation}-${currentSliceIndex}`
+    
+    const sliceHist = history[historyKey]
     return sliceHist !== undefined && sliceHist.currentIndex > 0
   }
 
-  canRedo(structureId: number, sliceIndex?: number): boolean {
+  // Updated canRedo with orientation
+  canRedo(
+    structureId: number, 
+    sliceIndex?: number,
+    orientation?: 'axial' | 'coronal' | 'sagittal'
+  ): boolean {
     const history = this.sliceHistory.get(structureId)
     if (!history) return false
 
     const currentSliceIndex = sliceIndex ?? this.getCurrentSlice(structureId)
-    const sliceHist = history[currentSliceIndex]
-
+    const currentOrientation = orientation ?? this.getCurrentOrientation(structureId)
+    const historyKey = `${currentOrientation}-${currentSliceIndex}`
+    
+    const sliceHist = history[historyKey]
     return sliceHist !== undefined && sliceHist.currentIndex < sliceHist.entries.length - 1
   }
 
-  updateMaskVoxel(
-    structure_id: number,
-    patient_id: string,
-    x: number,
-    y: number,
-    z: number,
-    value: number,
-    brushSize: number = 1
-  ): void {
+  // In MaskManager.ts - COMPLETE FIX
 
-    const modality = localStorage.getItem("selected_modality")!
-    const mask = this.masks.get(`${patient_id}-${structure_id}-${modality}`)
-    // console.log('the mask found from update mask voxel', mask)
-    if (!mask) return
+updateMaskVoxel(
+  structure_id: number,
+  patient_id: string,
+  x: number,
+  y: number,
+  z: number,
+  value: number,
+  brushSize: number = 1,
+  orientation: 'axial' | 'coronal' | 'sagittal' = 'axial'
+): void {
+  const modality = localStorage.getItem("selected_modality")!
+  const mask = this.masks.get(`${patient_id}-${structure_id}-${modality}`)
+  if (!mask || !mask.data || !mask.dims) return
 
-    const [dimX, dimY, dimZ] = mask.dims!
-    const halfSize = Math.floor(brushSize / 2)
+  const [dimX, dimY, dimZ] = mask.dims
+  const halfSize = Math.floor(brushSize / 2)
 
-    // 2D brush only - no depth painting
-    for (let dx = -halfSize; dx <= halfSize; dx++) {
-      for (let dy = -halfSize; dy <= halfSize; dy++) {
-        const nx = x + dx
-        const ny = y + dy
-        const nz = z
+  // 2D brush in the correct plane based on orientation
+  for (let d1 = -halfSize; d1 <= halfSize; d1++) {
+    for (let d2 = -halfSize; d2 <= halfSize; d2++) {
+      const dist = Math.sqrt(d1 * d1 + d2 * d2)
+      if (dist > halfSize) continue
 
-        if (nx >= 0 && nx < dimX && ny >= 0 && ny < dimY && nz >= 0 && nz < dimZ) {
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist <= halfSize) {
-            const index = nx + ny * dimX + nz * dimX * dimY
-            mask.data![index] = value
-          }
-        }
+      let nx = x, ny = y, nz = z
+
+      switch (orientation) {
+        case 'axial':
+          // Axial view: brush expands in X-Y plane, Z is fixed
+          nx = x + d1
+          ny = y + d2
+          // nz stays as z (the slice)
+          break
+        case 'coronal':
+          // Coronal view: brush expands in X-Z plane, Y is fixed
+          nx = x + d1
+          // ny stays as y (the slice)
+          nz = z + d2
+          break
+        case 'sagittal':
+          // Sagittal view: brush expands in Y-Z plane, X is fixed
+          // nx stays as x (the slice)
+          ny = y + d1
+          nz = z + d2
+          break
+      }
+
+      // Bounds check
+      if (nx >= 0 && nx < dimX && ny >= 0 && ny < dimY && nz >= 0 && nz < dimZ) {
+        const index = nx + ny * dimX + nz * dimX * dimY
+        mask.data[index] = value
       }
     }
-
-    // console.log('Emitting maskUpdated for structure', structureId)
-    // save to local database
-    // console.log('from maskmanager, lin 355: the dims are', mask.dims)
-    this.debouncedSave(structure_id, patient_id, mask.dims!, mask.data!)
-    // saveMask(structureId, patient_id, mask.dims, mask.data)
-
-    this.emit('maskUpdated', structure_id)
-
   }
+
+  this.debouncedSave(structure_id, patient_id, mask.dims, mask.data)
+  this.emit('maskUpdated', structure_id)
+}
 
   getMaskSlice(
     structureId: number,
@@ -390,11 +527,11 @@ export class MaskManager extends SimpleEventEmitter {
     const patient_id = localStorage.getItem("selected_patient")
     const modality = localStorage.getItem("selected_modality")!
     const mask = this.masks.get(`${patient_id}-${structureId}-${modality}`)
-    if (!mask) return null
+    if (!mask || !mask.data || !mask.dims) return null
     
-    const [dimX, dimY, dimZ] = mask.dims!
+    const [dimX, dimY, dimZ] = mask.dims
     let sliceData: Uint8Array
-
+  
     switch (orientation) {
       case 'axial':
         sliceData = new Uint8Array(dimX * dimY)
@@ -402,34 +539,38 @@ export class MaskManager extends SimpleEventEmitter {
           for (let x = 0; x < dimX; x++) {
             const index3D = x + y * dimX + sliceIndex * dimX * dimY
             const index2D = x + y * dimX
-            sliceData[index2D] = mask.data![index3D]
+            sliceData[index2D] = mask.data[index3D]
           }
         }
         break
-
+  
       case 'coronal':
         sliceData = new Uint8Array(dimX * dimZ)
         for (let z = 0; z < dimZ; z++) {
           for (let x = 0; x < dimX; x++) {
             const index3D = x + sliceIndex * dimX + z * dimX * dimY
-            const index2D = x + z * dimX
-            sliceData[index2D] = mask.data![index3D]
+            // Flip Z for display (match image extraction)
+            const dstZ = dimZ - 1 - z
+            const index2D = x + dstZ * dimX
+            sliceData[index2D] = mask.data[index3D]
           }
         }
         break
-
+  
       case 'sagittal':
         sliceData = new Uint8Array(dimY * dimZ)
         for (let z = 0; z < dimZ; z++) {
           for (let y = 0; y < dimY; y++) {
             const index3D = sliceIndex + y * dimX + z * dimX * dimY
-            const index2D = y + z * dimY
-            sliceData[index2D] = mask.data![index3D]
+            // Flip Z for display (match image extraction)
+            const dstZ = dimZ - 1 - z
+            const index2D = y + dstZ * dimY
+            sliceData[index2D] = mask.data[index3D]
           }
         }
         break
     }
-
+  
     return sliceData
   }
 

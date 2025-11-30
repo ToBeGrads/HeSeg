@@ -245,6 +245,7 @@
   border-radius: 6px;
 }
 
+
 /* 4-Panel Column Layout - Brainchop Style */
 .quad-view-columns {
   width: 100%;
@@ -1622,5 +1623,116 @@
 
 .ruler-btn.active {
   background-color: rgba(255, 255, 255, 0.9);
+  color: #7ddb94;
+}
+
+/* Orientation Selector */
+.orientation-selector-container {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.orientation-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  background-color: rgba(0, 0, 0, 0.85);
+  border: 2px solid #7ddb94;
+  border-radius: 20px;
+  color: #7ddb94;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  text-transform: capitalize;
+}
+
+.orientation-selector-btn:hover {
+  background-color: rgba(125, 219, 148, 0.2);
+}
+
+.orientation-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.95);
+  border: 2px solid #7ddb94;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  min-width: 120px;
+}
+
+.orientation-option {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.orientation-option:hover {
+  background-color: rgba(125, 219, 148, 0.2);
+  color: #7ddb94;
+}
+
+.orientation-option.active {
+  background-color: rgba(125, 219, 148, 0.3);
+  color: #7ddb94;
+  font-weight: bold;
+}
+
+.orientation-option:not(:last-child) {
+  border-bottom: 1px solid rgba(125, 219, 148, 0.2);
+}
+
+/* 3D View Toggle */
+.threed-view-toggle {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.8);
+  border: 2px solid #7ddb94;
+  border-radius: 20px;
+  padding: 0.2rem;
+  z-index: 10;
+}
+
+.threed-view-toggle .toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.threed-view-toggle .toggle-btn:hover {
+  color: #7ddb94;
+}
+
+.threed-view-toggle .toggle-btn.active {
+  background-color: rgba(125, 219, 148, 0.2);
   color: #7ddb94;
 }

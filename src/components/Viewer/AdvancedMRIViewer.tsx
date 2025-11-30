@@ -1,7 +1,7 @@
 // src/components/AdvancedMRIViewer.tsx
 import { useState, useRef, useCallback } from 'react'
 import './AdvancedMRIViewer.css'
-import { FiMove, FiMaximize2 } from 'react-icons/fi'
+import { FiMove, FiMaximize2, FiGrid, FiChevronDown } from 'react-icons/fi'
 import SegmentationToolbar from '../SegmentationToolbar'
 import { maskManager } from '../../utils/MaskManager'
 
@@ -32,6 +32,9 @@ function AdvancedMRIViewer() {
   // ========================
   const volumeData = useVolumeStore((state) => state.volumeData)
   const structures = useStructureStore((state) => state.mystructures)
+
+  const [singleViewOrientation, setSingleViewOrientation] = useState<Orientation>('axial')
+const [showOrientationDropdown, setShowOrientationDropdown] = useState(false)
   
   // const {
   //   structureId: placementStructureId
@@ -64,6 +67,13 @@ function AdvancedMRIViewer() {
   
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Add state to track the editing orientation
+const [editingOrientation, setEditingOrientation] = useState<'axial' | 'coronal' | 'sagittal'>('axial')
+
+// For now, use singleViewOrientation or viewOrientation as the editing orientation
+const currentEditingOrientation = viewMode === 'single' 
+  ? singleViewOrientation 
+  : viewOrientation
   // ========================
   // HOOKS
   // ========================
@@ -116,33 +126,32 @@ function AdvancedMRIViewer() {
 
   const handleUndo = () => {
     if (activeStructureId) {
-      const currentSlice = currentSlices.axial
-      maskManager.setCurrentSlice(activeStructureId, currentSlice)
-      maskManager.undo(activeStructureId, currentSlice)
+      const currentSlice = currentSlices[currentEditingOrientation]
+      maskManager.setCurrentSlice(activeStructureId, currentSlice, currentEditingOrientation)
+      maskManager.undo(activeStructureId, currentSlice, currentEditingOrientation)
       useMaskStore.setState((s) => ({ ...s }))
     }
   }
-
+  
   const handleRedo = () => {
     if (activeStructureId) {
-      const currentSlice = currentSlices.axial
-      maskManager.setCurrentSlice(activeStructureId, currentSlice)
-      maskManager.redo(activeStructureId, currentSlice)
+      const currentSlice = currentSlices[currentEditingOrientation]
+      maskManager.setCurrentSlice(activeStructureId, currentSlice, currentEditingOrientation)
+      maskManager.redo(activeStructureId, currentSlice, currentEditingOrientation)
       useMaskStore.setState((s) => ({ ...s }))
     }
   }
 
   const canUndo = () => {
-    console.log(viewOrientation)
     if (!activeStructureId) return false
-    const currentSlice = currentSlices.axial
-    return maskManager.canUndo(activeStructureId, currentSlice)
+    const currentSlice = currentSlices[currentEditingOrientation]
+    return maskManager.canUndo(activeStructureId, currentSlice, currentEditingOrientation)
   }
   
   const canRedo = () => {
     if (!activeStructureId) return false
-    const currentSlice = currentSlices.axial
-    return maskManager.canRedo(activeStructureId, currentSlice)
+    const currentSlice = currentSlices[currentEditingOrientation]
+    return maskManager.canRedo(activeStructureId, currentSlice, currentEditingOrientation)
   }
 
   // Keyboard shortcuts
@@ -193,19 +202,67 @@ function AdvancedMRIViewer() {
       {showSettings && <ViewerSettingsPanel />}
 
       <div className="viewer-content" ref={containerRef}>
-        {viewMode === 'single' && (
-          <div className="single-view">
-            <SliceView
-              // patient_id = {patient_id}
-              orientation= "axial"
-              slices={allSlices["axial"]}
-              onVoxelCoordsChange={setVoxelCoords}
-              onPreviewCoordinateChange={setPreviewCoordinate}
-              previewCoordinate={previewCoordinate}
-              viewMode={viewMode}
-            />
-          </div>
-        )}
+
+
+
+{viewMode === 'single' && (
+  <div className="single-view">
+    {/* Orientation Selector */}
+    <div className="orientation-selector-container">
+      <button 
+        className="orientation-selector-btn"
+        onClick={() => setShowOrientationDropdown(!showOrientationDropdown)}
+      >
+        <span>{singleViewOrientation.charAt(0).toUpperCase() + singleViewOrientation.slice(1)}</span>
+        <FiChevronDown size={14} style={{ 
+          transform: showOrientationDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s ease'
+        }} />
+      </button>
+      
+      {showOrientationDropdown && (
+        <div className="orientation-dropdown">
+          <button 
+            className={`orientation-option ${singleViewOrientation === 'axial' ? 'active' : ''}`}
+            onClick={() => {
+              setSingleViewOrientation('axial')
+              setShowOrientationDropdown(false)
+            }}
+          >
+            Axial
+          </button>
+          <button 
+            className={`orientation-option ${singleViewOrientation === 'coronal' ? 'active' : ''}`}
+            onClick={() => {
+              setSingleViewOrientation('coronal')
+              setShowOrientationDropdown(false)
+            }}
+          >
+            Coronal
+          </button>
+          <button 
+            className={`orientation-option ${singleViewOrientation === 'sagittal' ? 'active' : ''}`}
+            onClick={() => {
+              setSingleViewOrientation('sagittal')
+              setShowOrientationDropdown(false)
+            }}
+          >
+            Sagittal
+          </button>
+        </div>
+      )}
+    </div>
+    
+    <SliceView
+      orientation={singleViewOrientation}
+      slices={allSlices[singleViewOrientation]}
+      onVoxelCoordsChange={setVoxelCoords}
+      onPreviewCoordinateChange={setPreviewCoordinate}
+      previewCoordinate={previewCoordinate}
+      viewMode={viewMode}
+    />
+  </div>
+)}
 
         {viewMode === 'quad' && (
           <div className="quad-view-columns">
@@ -303,22 +360,22 @@ function AdvancedMRIViewer() {
 
       {activeStructureId && (
         <SegmentationToolbar
-          structureColor={structures.find(s => s.id === activeStructureId)?.color || '#7ddb94'}
-          structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
-          brushSize={brushSize}
-          onBrushSizeChange={setBrushSize}
-          tool={tool as 'draw' | 'erase'}
-          onToolChange={setTool}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onComplete={handleStopEditing}
-          onNext={() => handleSliceChange('axial', 'next')}
-          onPrevious={() => handleSliceChange('axial', 'prev')}
-          canUndo={canUndo()}
-          canRedo={canRedo()}
-          currentSlice={currentSlices.axial}
-          totalSlices={allSlices.axial.length}
-        />
+        structureColor={structures.find(s => s.id === activeStructureId)?.color || '#7ddb94'}
+        structureName={structures.find(s => s.id === activeStructureId)?.title || 'Structure'}
+        brushSize={brushSize}
+        onBrushSizeChange={setBrushSize}
+        tool={tool as 'draw' | 'erase'}
+        onToolChange={setTool}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onComplete={handleStopEditing}
+        onNext={() => handleSliceChange(currentEditingOrientation, 'next')}
+        onPrevious={() => handleSliceChange(currentEditingOrientation, 'prev')}
+        canUndo={canUndo()}
+        canRedo={canRedo()}
+        currentSlice={currentSlices[currentEditingOrientation]}
+        totalSlices={allSlices[currentEditingOrientation].length}
+      />
       )}
     </div>
   )

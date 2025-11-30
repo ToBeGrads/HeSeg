@@ -1,62 +1,57 @@
-// src/store/useVolumeStore.ts
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { VolumeData } from '../types'
 import { MedicalImageLoader } from '../utils/medicalImageLoader'
-import { VOLUME_PATH } from '../utils/constants'
+import type { VolumeData, RotationOption } from '../types'
 
 interface VolumeState {
-  // State
   volumeData: VolumeData | null
   loading: boolean
   error: string | null
+  rotation: RotationOption
   
-  // Actions
-  loadVolume: (path?: string) => Promise<void>
+  loadVolume: (mriPath: string, rotation?: RotationOption) => Promise<void>
   setVolumeData: (data: VolumeData | null) => void
+  setRotation: (rotation: RotationOption) => void
   clearVolume: () => void
-  reset: () => void
-}
-
-const initialState = {
-  volumeData: null,
-  loading: false,
-  error: null
 }
 
 export const useVolumeStore = create<VolumeState>()(
   devtools(
-    (set) => ({
-      ...initialState,
+    (set, get) => ({
+      volumeData: null,
+      loading: false,
+      error: null,
+      rotation: 'none',
 
-      // Load volume from file
-      loadVolume: async (path = VOLUME_PATH) => {
+      loadVolume: async (mriPath: string, rotation?: RotationOption) => {
         set({ loading: true, error: null }, false, 'loadVolume/start')
         
         try {
-          console.log('Loading MRI volume from:', path)
+          const rotationToUse = rotation || get().rotation
           
-          const possiblePaths = [
-            path,
+          // Try different path variations
+          const pathsToTry = [
+            mriPath,
+            mriPath.startsWith('/') ? mriPath : `/${mriPath}`,
+            mriPath.replace(/^\/+/, ''),
           ]
           
           let volume: VolumeData | null = null
-          // let loadedPath = ''
           
-          for (const tryPath of possiblePaths) {
+          for (const tryPath of pathsToTry) {
             try {
-              // console.log(`Trying: ${tryPath}`)
-              const loadedVolume = await MedicalImageLoader.loadNiftiVolume(tryPath)
-              if (loadedVolume.dims.length === 3) {
-                volume = {
-                  ...loadedVolume,
-                  dims: [loadedVolume.dims[0], loadedVolume.dims[1], loadedVolume.dims[2]] as [number, number, number]
-                }
-              } else {
-                throw new Error('Invalid volume dimensions. Expected 3 elements.')
+              console.log(`Attempting to load: ${tryPath} with rotation: ${rotationToUse}`)
+              volume = await MedicalImageLoader.loadNiftiVolume(tryPath, rotationToUse)
+              
+              if (!volume.dims || volume.dims.length !== 3) {
+                throw new Error('Invalid volume dimensions')
               }
-              // loadedPath = tryPath
-              // console.log(`SUCCESS! Loaded from: ${loadedPath}`)
+              
+              console.log(`✅ Loaded successfully from: ${tryPath}`)
+              console.log(`   Dimensions: ${volume.dims.join('×')}`)
+              console.log(`   Pixel spacing: ${volume.pixDims?.join('×') || 'unknown'} mm`)
+              console.log(`   Value range: ${volume.min.toFixed(2)} to ${volume.max.toFixed(2)}`)
+              console.log(`   Rotation applied: ${rotationToUse}`)
               break
             } catch (error) {
               console.warn(`Failed: ${tryPath}`)
@@ -65,42 +60,34 @@ export const useVolumeStore = create<VolumeState>()(
           
           if (volume) {
             set(
-              { volumeData: volume, loading: false, error: null },
+              { volumeData: volume, loading: false, error: null, rotation: rotationToUse },
               false,
               'loadVolume/success'
             )
-            // console.log('Volume loaded successfully!')
-            // console.log('Volume dimensions:', volume.dims)
-            // console.log('Value range:', volume.min, 'to', volume.max)
           } else {
-            throw new Error('No MRI file found. Please place brain.nii.gz in the public folder.')
+            throw new Error('No MRI file found')
           }
         } catch (error: any) {
           console.error('Volume loading error:', error)
           set(
-            {
-              volumeData: null,
-              loading: false,
-              error: error.message || 'Failed to load volume'
-            },
+            { volumeData: null, loading: false, error: error.message },
             false,
             'loadVolume/error'
           )
         }
       },
 
-      // Set volume data directly
       setVolumeData: (data) => {
         set({ volumeData: data }, false, 'setVolumeData')
       },
-
-      // Clear volume
-      clearVolume: () => {
-        set({ volumeData: null, error: null }, false, 'clearVolume')
+      
+      setRotation: (rotation) => {
+        set({ rotation }, false, 'setRotation')
       },
 
-      // Reset to initial state
-      reset: () => set(initialState, false, 'reset')
+      clearVolume: () => {
+        set({ volumeData: null, loading: false, error: null }, false, 'clearVolume')
+      }
     }),
     { name: 'VolumeStore' }
   )
