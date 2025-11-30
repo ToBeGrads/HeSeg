@@ -17,7 +17,7 @@ export default function SegmentList() {
       age: '60',
       mri_path: '',
       modality : 'T1',
-      status: "Unfinished"
+      last_modified: '2023-10-01',
     }
   ])
   const { token } = useAuth();
@@ -49,7 +49,7 @@ export default function SegmentList() {
   const navigate = useNavigate()
   const handle = (patient_id: string, mri_path: string, modality : string) => {
     localStorage.setItem("selected_patient", patient_id)
-    localStorage.setItem("modality",modality)
+    localStorage.setItem("selected_modality",modality)
     navigate('/viewer', { state: { path: BASEURL + mri_path, patient_id: patient_id } })
 
   }
@@ -70,7 +70,7 @@ export default function SegmentList() {
               <th>Sex</th>
               <th>Age</th>
               <th>Modality</th>
-              <th>Status</th>
+              <th>Last Modified</th>
             </tr>
           </thead>
           <tbody>
@@ -85,8 +85,8 @@ export default function SegmentList() {
                   <td>{c.age}</td>
                   <td>{c.modality}</td>
                   <td>
-                    <span className={`segment-status ${c.status}`}>
-                      {c.status}
+                    <span className={`segment-status ${c.last_modified}`}>
+                      {c.last_modified ? c.last_modified : 'N/A'}
                     </span>
                   </td>
                 </tr>

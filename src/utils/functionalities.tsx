@@ -11,10 +11,10 @@ export async function save_mask(structure_id: number, patient_id: string, blob: 
   try {
     //send the changes to the backend
     console.log(blob)
-    const file = new File([blob], `mask-${structure_id}-${patient_id}.raw`, {
+    const modality = localStorage.getItem("selected_modality")!
+    const file = new File([blob], `mask-${patient_id}-${modality}-${structure_id}.raw`, {
       type: 'application/octet-stream',
     })
-    const modality = localStorage.getItem("selected_modality")!
     const response = await Axios.post('segment/Update_mask', {
       file,
       'structure_id': structure_id.toString(),

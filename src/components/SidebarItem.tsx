@@ -18,7 +18,6 @@ interface SidebarItemProps {
 }
 
 function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: SidebarItemProps) {
-  console.log("side bar item")
   // ========================
   // GET STATE FROM STORES
   // ========================

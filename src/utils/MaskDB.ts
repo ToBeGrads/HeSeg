@@ -42,7 +42,7 @@ export async function saveMask(structureId: number, patient_id: string, dims: [n
 export async function loadMask(structureId: number): Promise<StoredMask | null> {
   const db = await getDB()
   const patient_id = localStorage.getItem('selected_patient')
-  const modality = localStorage.getItem("modality")!
+  const modality = localStorage.getItem("selected_modality")!
   const record = await db.get(STORE_NAME, `${patient_id}-${structureId}-${modality}`)
   if (!record) return null
 
@@ -57,7 +57,7 @@ export async function loadMask(structureId: number): Promise<StoredMask | null> 
 
 export async function deleteMask(structureId: number) {
   const db = await getDB()
-  const modality = localStorage.getItem("modality")!
+  const modality = localStorage.getItem("selected_modality")!
   const patient_id = localStorage.getItem("selected_patient")
   await db.delete(STORE_NAME, `${patient_id}-${structureId}-${modality}`)
   console.log(`Deleted ${patient_id}-${structureId} from IndexedDB`)

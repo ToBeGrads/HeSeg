@@ -115,6 +115,7 @@ export class MaskManager extends SimpleEventEmitter {
   }
 
   async getMask(structureId: number): Promise<Mask | null> {
+
     // Check in-memory first
     const patient_id = localStorage.getItem("selected_patient")
     const modality = localStorage.getItem("selected_modality")!
@@ -122,7 +123,6 @@ export class MaskManager extends SimpleEventEmitter {
     if (mask) {
       return mask
     }
-
     //Try to load from IndexedDB
     let stored
     try {
@@ -140,10 +140,19 @@ export class MaskManager extends SimpleEventEmitter {
     const formData = new FormData()
     formData.append('structure_id', structureId.toString())
     formData.append('patient_id', localStorage.getItem('selected_patient')!)
+    formData.append('modality', localStorage.getItem('selected_modality')!)
 
     // fetch from backend 
     stored = await Load_Mask(formData)
-    // return stored
+    // add to the indexedDB for future use
+    // createMask(
+    //   new Blob([stored.data.buffer], { type: "application/octet-stream" }),
+    //   structureId,
+    //   patient_id!,
+    //   localStorage.getItem('color')!,
+    //   stored.dims!
+    // )
+    console.log(`Loaded mask for structure ${structureId} from backend`)
     }
 
     // Rebuild mask from DB
