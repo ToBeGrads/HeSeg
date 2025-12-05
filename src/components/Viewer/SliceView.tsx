@@ -15,6 +15,8 @@ import { usePlacementStore } from '../../store/usePlacementStore'
 import { useMaskStore } from '../../store/useMaskStore'
 import { useViewerStore } from '../../store/useViewerStore'
 
+import { useTranslation } from '../../hooks/useTranslation'
+
 type Orientation = 'axial' | 'coronal' | 'sagittal'
 
 interface SliceViewProps {
@@ -42,9 +44,12 @@ export function SliceView({
   // ========================
   // STORES
   // ========================
+  const { t } = useTranslation();
   const volumeData = useVolumeStore((state) => state.volumeData)
   const structures = useStructureStore((state) => state.mystructures)
   const { addCoordinate } = useStructureStore()
+  const [showOrientationDropdown, setShowOrientationDropdown] = useState(false)
+
 
   const {
     active: placementActive,
@@ -76,7 +81,9 @@ export function SliceView({
     jumpToCoord,
     setCurrentSlice,
     updateViewState,
-    resetViewState
+    resetViewState,
+    setSingleViewOrientation
+    
   } = useViewerStore()
 
   const { setCurrentSliceURL } = useMRI()
@@ -288,7 +295,7 @@ const drawAtPoint = (pixelX: number, pixelY: number) => {
   }
 
   const handleZoom = (delta: number) => {
-    const newScale = Math.max(0.5, Math.min(10, viewState.scale + delta))
+    const newScale = Math.max(0.5, Math.min(30, viewState.scale + delta))
     updateViewState(orientation, { scale: newScale })
   }
 
@@ -869,7 +876,7 @@ if (tool === 'ruler') {
 
       <div className="slice-viewer-wrapper" style={{ overflow: 'hidden' }}>
         {/* Pan Controls - Hide in view-only and rating mode */}
-        {!viewOnly && !ratingMode && viewState.scale > 1 && (
+        {!viewOnly && !ratingMode && viewState.scale > 2 && (
           <>
             <button className="pan-control pan-left"
               onClick={(e) => {
@@ -1364,6 +1371,64 @@ if (tool === 'ruler') {
           <FiChevronRight size={14} />
         </button>
       </div>
+      {/* Add after zoom-controls div, before the closing </div> of slice-viewer-container */}
+
+{/* Orientation Selector - Only in Single View */}
+{viewMode === 'single' && (
+  <div className="orientation-selector-container">
+    <button 
+      className="orientation-selector-btn"
+      onClick={(e) => {
+        e.stopPropagation()
+        setShowOrientationDropdown(!showOrientationDropdown)
+      }}
+    >
+      <span>{orientation.charAt(0).toUpperCase() + orientation.slice(1)}</span>
+      <FiChevronDown 
+        size={12} 
+        style={{ 
+          transform: showOrientationDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s ease'
+        }} 
+      />
+    </button>
+    
+    {showOrientationDropdown && (
+      <div className="orientation-dropdown">
+        <button 
+          className={`orientation-option ${orientation === 'axial' ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            setSingleViewOrientation('axial')
+            setShowOrientationDropdown(false)
+          }}
+        >
+          {t.advancedMRI?.axial || 'Axial'}
+        </button>
+        <button 
+          className={`orientation-option ${orientation === 'coronal' ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            setSingleViewOrientation('coronal')
+            setShowOrientationDropdown(false)
+          }}
+        >
+          {t.advancedMRI?.coronal || 'Coronal'}
+        </button>
+        <button 
+          className={`orientation-option ${orientation === 'sagittal' ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            setSingleViewOrientation('sagittal')
+            setShowOrientationDropdown(false)
+          }}
+        >
+          {t.advancedMRI?.sagittal || 'Sagittal'}
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
       {/* Zoom Controls */}
       <div className="zoom-controls">

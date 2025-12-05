@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { FiEdit2, FiRotateCcw, FiRotateCw, FiCheck, FiArrowRight, FiArrowLeft, FiMove } from 'react-icons/fi'
 import { TfiEraser } from "react-icons/tfi"
 import './SegmentationToolbar.css'
+import { useTranslation } from '../hooks/useTranslation'
 
 interface SegmentationToolbarProps {
   structureColor: string
@@ -39,6 +40,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
   currentSlice = 0,  // ADD THIS
   totalSlices = 0    // ADD THIS
 }) => {
+  const { t } = useTranslation()
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -117,7 +119,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
               borderColor: tool === 'draw' ? structureColor : 'transparent',
               color: tool === 'draw' ? structureColor : undefined
             }}
-            title="Draw (D)"
+            title={t.segmentationToolbar.draw}
           >
             <FiEdit2 size={16} />
           </button>
@@ -128,7 +130,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
               borderColor: tool === 'erase' ? structureColor : 'transparent',
               color: tool === 'erase' ? structureColor : undefined
             }}
-            title="Erase (E)"
+            title={t.segmentationToolbar.erase}
           >
             <TfiEraser size={16} />
           </button>
@@ -137,7 +139,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
         {/* Brush Size */}
         <div className="segmentation-brush-group">
           <label className="segmentation-label">
-            Brush Size: <span className="segmentation-value">{brushSize}px</span>
+          {t.segmentationToolbar.brushSize}: <span className="segmentation-value">{brushSize}px</span>
           </label>
           <input
             type="range"
@@ -159,7 +161,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
             onClick={onPrevious}
             disabled={currentSlice === 0}
             style={{ color: structureColor }}
-            title="Previous Slice"
+            title={t.segmentationToolbar.previousSlice}
           >
             <FiArrowLeft size={16} />
           </button>
@@ -167,7 +169,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
             className="segmentation-action-btn"
             onClick={onUndo}
             disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
+            title={t.segmentationToolbar.undo}
           >
             <FiRotateCcw size={16} />
           </button>
@@ -175,7 +177,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
             className="segmentation-action-btn"
             onClick={onRedo}
             disabled={!canRedo}
-            title="Redo (Ctrl+Y)"
+            title={t.segmentationToolbar.redo}
           >
             <FiRotateCw size={16} />
           </button>
@@ -184,7 +186,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
             onClick={onNext}
             disabled={currentSlice === totalSlices - 1}
             style={{ color: structureColor }}
-            title="Next Slice"
+            title={t.segmentationToolbar.nextSlice}
           >
             <FiArrowRight size={16} />
           </button>
@@ -192,7 +194,7 @@ export const SegmentationToolbar: React.FC<SegmentationToolbarProps> = ({
             className="segmentation-action-btn complete-btn"
             onClick={onComplete}
             style={{ backgroundColor: structureColor }}
-            title="Complete (Enter)"
+            title={t.segmentationToolbar.complete}
           >
             <FiCheck size={16} />
           </button>

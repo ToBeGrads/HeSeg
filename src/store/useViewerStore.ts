@@ -20,6 +20,9 @@ interface ViewState {
 interface ViewerState {
   // View mode
   viewMode: ViewMode
+
+  // Single view orientation
+  singleViewOrientation: Orientation
   
   // Current slices
   currentSlices: Record<Orientation, number>
@@ -33,9 +36,12 @@ interface ViewerState {
   
   // Jump to coordinate
   jumpToCoord: { x: number; y: number; z: number } | null
+
+  
   
   // Actions
   setViewMode: (mode: ViewMode) => void
+  setSingleViewOrientation: (orientation: Orientation) => void
   setCurrentSlice: (orientation: Orientation, slice: number) => void
   updateViewState: (orientation: Orientation, state: Partial<ViewState>) => void
   resetViewState: (orientation: Orientation) => void
@@ -55,6 +61,7 @@ const initialViewState: ViewState = {
   
   const initialState = {
     viewMode: 'quad' as ViewMode,
+    singleViewOrientation: 'axial' as Orientation, 
     currentSlices: {
       axial: 0,
       coronal: 0,
@@ -80,7 +87,9 @@ export const useViewerStore = create<ViewerState>()(
         set({ viewMode: mode }, false, 'setViewMode')
         // console.log(`View mode: ${mode}`)
       },
-
+      setSingleViewOrientation: (orientation: Orientation) => {
+        set({ singleViewOrientation: orientation }, false, 'setSingleViewOrientation')
+      },
       // Set current slice
       setCurrentSlice: (orientation, slice) => {
         set(

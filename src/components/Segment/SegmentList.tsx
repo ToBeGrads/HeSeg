@@ -5,11 +5,15 @@ import { useEffect, useState } from "react"
 import { useAuth } from "../../hooks/useAuth"
 import axios from "axios"
 import { BASEURL } from "../../utils/constants"
+import App from "../../App"
+import AppHeader from "../AppHeader/AppHeader"
+import { useTranslation } from "../../hooks/useTranslation"
 
 
 
 
 export default function SegmentList() {
+  const { t } = useTranslation();
   const [data, setData] = useState([
     {
       patient_id: "PID_100",
@@ -56,21 +60,22 @@ export default function SegmentList() {
 
   return (
     <div className="segment-list-container">
+      <AppHeader />
       <div className='segment-header'>
         <button className="segment-return-btn" onClick={() => navigate('main')}>
           <FaChevronLeft size={16} />
         </button>
-        <h2>Segment Cases</h2>
+        <h2>{t.segmentList.segmentCases}</h2>
         <span></span>
       </div>
       <div className="segment-table-wrapper">
         <table className="segment-table">
           <thead>
             <tr>
-              <th>Sex</th>
-              <th>Age</th>
-              <th>Modality</th>
-              <th>Last Modified</th>
+              <th>{t.segmentList.gender}</th>
+              <th>{t.segmentList.age}</th>
+              <th>{t.segmentList.modality}</th>
+              <th>{t.segmentList.lastModified}</th>
             </tr>
           </thead>
           <tbody>

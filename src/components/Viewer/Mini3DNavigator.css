@@ -2,7 +2,7 @@
 .mini-3d-navigator {
     position: fixed;
     background-color: rgba(20, 20, 20, 0.95);
-    border: 2px solid #7ddb94;
+    border: 1px solid #7ddb94;
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
@@ -21,7 +21,7 @@
   
   .mini-3d-navigator.expanded {
     border-color: #6bc47d;
-    box-shadow: 0 12px 32px rgba(125, 219, 148, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   }
   
   /* Header */
@@ -41,7 +41,7 @@
   }
   
   .mini-3d-title {
-    color: #7ddb94;
+    color: #ffffff;
     font-size: 0.75rem;
     font-weight: bold;
     text-transform: uppercase;
@@ -97,7 +97,7 @@
     border-radius: 0 0 10px 10px;
     font-size: 0.65rem;
     font-family: 'Courier New', monospace;
-    color: #7ddb94;
+    color: #ffffff;
     font-weight: bold;
   }
   

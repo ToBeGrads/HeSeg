@@ -1,5 +1,6 @@
 // src/components/Viewer/PreviewControls.tsx
 import { usePlacementStore } from '../../store/usePlacementStore'
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface PreviewControlsProps {
   coordinate: { x: number; y: number; z: number }
@@ -10,12 +11,13 @@ interface PreviewControlsProps {
 export function PreviewControls({ coordinate, onSave, onCancel }: PreviewControlsProps) {
   // Get state directly from store
   const { isEditing} = usePlacementStore()
+  const { t } = useTranslation();
 
   return (
     <div className="preview-controls-bottom">
       <div className="preview-info-bar">
         <span className="preview-label">
-          {isEditing ? 'Edit Point:' : 'Preview:'}
+          {isEditing ? 'Edit Point:' : t.previewCoordinates.preview}
         </span>
         <span className="preview-coord-display">
           X: {coordinate.x}, Y: {coordinate.y}, Z: {coordinate.z}
@@ -29,7 +31,7 @@ export function PreviewControls({ coordinate, onSave, onCancel }: PreviewControl
             onSave()
           }}
         >
-          {isEditing ? 'Update' : 'Save'}
+          {isEditing ? 'Update' : t.previewCoordinates.save}
         </button>
         <button
           className="preview-btn cancel-btn"
@@ -38,7 +40,7 @@ export function PreviewControls({ coordinate, onSave, onCancel }: PreviewControl
             onCancel()
           }}
         >
-          Cancel
+          {t.previewCoordinates.cancel}
         </button>
       </div>
     </div>

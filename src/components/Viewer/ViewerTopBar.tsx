@@ -5,12 +5,14 @@ import { useViewerStore } from '../../store/useViewerStore'
 import { useMaskStore } from '../../store/useMaskStore';
 import type { Tool } from '../../types';
 import { TfiRuler } from 'react-icons/tfi';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ViewerTopBarProps {
   voxelCoords: { x: number; y: number; z: number }
 }
 
 export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
+  const { t } = useTranslation();
   // ✨ Get state directly from stores
   const volumeData = useVolumeStore((state) => state.volumeData)
   const { viewMode, showSettings, setViewMode, toggleSettings } = useViewerStore()
@@ -31,16 +33,16 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
   return (
     <div className="viewer-topbar">
       <div className="topbar-left">
-        <span className="viewer-title">MRI Viewer</span>
+        <span className="viewer-title">{t.topBar.title}</span>
         {volumeData && (
           <>
-            <span className="volume-dims">
+            <span className="volume-dims" title={t.topBar.volumeDims}>
               {volumeData.dims[0]}×{volumeData.dims[1]}×{volumeData.dims[2]}
             </span>
-            <span className="voxel-coords">
+            <span className="voxel-coords" title={t.topBar.voxelCoords}>
               ({voxelCoords.x}, {voxelCoords.y}, {voxelCoords.z})
             </span>
-             <span className="volume-spacing">
+             <span className="volume-spacing" title={t.topBar.volumeSpacing}>
                 {volumeData.pixDims[0].toFixed(2)}×{volumeData.pixDims[1].toFixed(2)}×{volumeData.pixDims[2].toFixed(2)} mm
               </span>
           </>
@@ -52,14 +54,14 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
           <button
             className={`view-btn ${viewMode === 'single' ? 'active' : ''}`}
             onClick={() => setViewMode('single')}
-            title="Single view (1)"
+            title={t.topBar.singleView}
           >
             <FiSquare size={14} />
           </button>
           <button
             className={`view-btn ${viewMode === 'quad' ? 'active' : ''}`}
             onClick={() => setViewMode('quad')}
-            title="4-Panel view (4)"
+            title={t.topBar.quadView}
           >
             
             <FiGrid size={14} />
@@ -76,7 +78,7 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
           <button
             className={`view-btn ${viewMode === 'mosaic' ? 'active' : ''}`}
             onClick={() => setViewMode('mosaic')}
-            title="Mosaic view (M)"
+            title={t.topBar.mosaicView}
           >
             <FiEye size={14} />
           </button>
@@ -84,18 +86,19 @@ export function ViewerTopBar({ voxelCoords }: ViewerTopBarProps) {
       </div>
 
       <div className="topbar-right">
+        
          {/* Ruler Button */}
          <button
           className={`settings-btn ruler-btn ${tool === 'ruler' as Tool ? 'active' : ''}`}
           onClick={handleRulerToggle}
-          title="Ruler - Measure distance (R)"
+          title={`${t.topBar.ruler} - ${t.topBar.measureDistance}`} 
         >
           <TfiRuler size={16} />
         </button>
         <button
           className={`settings-btn ${showSettings ? 'active' : ''}`}
           onClick={toggleSettings}
-          title="Settings"
+          title= {t.topBar.settings}
         >
           <FiSettings size={16} />
         </button>

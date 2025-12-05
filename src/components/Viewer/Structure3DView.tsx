@@ -8,6 +8,7 @@ import { useVolumeStore } from '../../store/useVolumeStore'
 import { useMaskStore } from '../../store/useMaskStore'
 import { FiRefreshCw, FiRotateCcw, FiCamera, FiZoomIn, FiZoomOut } from 'react-icons/fi'
 import './Structure3DView.css'
+import { useTranslation } from '../../hooks/useTranslation'
 
 interface DisplayOptions {
   showAxes: boolean
@@ -44,6 +45,7 @@ export function Structure3DView({
   isExpanded: parentExpanded,
   displayOptions = defaultDisplayOptions
 }: Structure3DViewProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -738,24 +740,20 @@ export function Structure3DView({
     <div className="structure-3d-view" ref={containerRef}>
       <div className="structure-3d-toolbar">
         <div className="toolbar-group">
-          <button className="toolbar-btn" onClick={buildMeshes} disabled={isLoading} title="Rebuild">
+          <button className="toolbar-btn" onClick={buildMeshes} disabled={isLoading} title={t.reconstruction.rebuild}>
             <FiRefreshCw size={14} className={isLoading ? 'spinning' : ''} />
           </button>
-          <button className="toolbar-btn" onClick={resetCamera} title="Reset View">
+          <button className="toolbar-btn" onClick={resetCamera} title={t.reconstruction.resetView}>
             <FiRotateCcw size={14} />
           </button>
-          <button className="toolbar-btn" onClick={zoomIn} title="Zoom In">
+          <button className="toolbar-btn" onClick={zoomIn} title={t.reconstruction.ZoomIn}>
             <FiZoomIn size={14} />
           </button>
-          <button className="toolbar-btn" onClick={zoomOut} title="Zoom Out">
+          <button className="toolbar-btn" onClick={zoomOut} title={t.reconstruction.ZoomOut}>
             <FiZoomOut size={14} />
           </button>
-          <button className="toolbar-btn" onClick={goInside} title="Go Inside">
-            🧠
-          </button>
-          <button className="toolbar-btn" onClick={takeScreenshot} title="Screenshot">
-            <FiCamera size={14} />
-          </button>
+          
+          
         </div>
 
         <div className="toolbar-group camera-presets">
@@ -767,7 +765,7 @@ export function Structure3DView({
 
         {displayOptions.showBrainOutline && (
           <div className="brain-opacity-control">
-            <span>Brain:</span>
+            <span>{t.reconstruction.brain}</span>
             <input type="range" min="0" max="0.5" step="0.02" value={brainOpacity} onChange={(e) => setBrainOpacity(parseFloat(e.target.value))} />
             <span>{Math.round(brainOpacity * 100)}%</span>
           </div>
@@ -779,7 +777,7 @@ export function Structure3DView({
       {isLoading && (
         <div className="structure-3d-loading">
           <div className="loading-spinner" />
-          <span>Building 3D...</span>
+          <span>{t.reconstruction.building3D}</span>
         </div>
       )}
 
@@ -791,10 +789,11 @@ export function Structure3DView({
           </div>
         ))}
       </div>
-
+      {/*
       <div className="controls-hint">
         <span>🖱️ Drag: rotate • Scroll: zoom (unlimited) • Shift+drag: pan • 🧠: go inside</span>
       </div>
+      */}
     </div>
   )
 }

@@ -30,7 +30,7 @@
 .toolbar-btn {
   background-color: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(125, 219, 148, 0.3);
-  color: #7ddb94;
+  color: #ffffff;
   padding: 0.3rem;
   border-radius: 4px;
   cursor: pointer;
@@ -222,7 +222,7 @@
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.7rem;
-  color: #7ddb94;
+  color: #ffffff;
 }
 
 .brain-opacity-control input[type="range"] {

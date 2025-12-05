@@ -1,14 +1,16 @@
 // src/components/Viewer/ViewerSettingsPanel.tsx
 import { useViewerStore } from '../../store/useViewerStore'
+import { useTranslation } from '../../hooks/useTranslation'
 
 export function ViewerSettingsPanel() {
   // ✨ Get state directly from store
   const { settings, updateSetting } = useViewerStore()
+  const { t } = useTranslation()
 
   return (
     <div className="settings-panel">
       <div className="settings-row">
-        <label>Brightness:</label>
+        <label>{t.settings.brightness}:</label>
         <input
           type="range"
           min="0"
@@ -21,7 +23,7 @@ export function ViewerSettingsPanel() {
       </div>
       
       <div className="settings-row">
-        <label>Contrast:</label>
+        <label>{t.settings.contrast}:</label>
         <input
           type="range"
           min="0"
@@ -34,7 +36,7 @@ export function ViewerSettingsPanel() {
       </div>
       
       <div className="settings-row">
-        <label>Crosshair (C):</label>
+        <label>{t.settings.crossHair}:</label>
         <input
           type="checkbox"
           checked={settings.crosshair}

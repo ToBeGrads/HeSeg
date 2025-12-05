@@ -1,7 +1,9 @@
 // src/components/Viewer/PlacementOverlay.tsx
 import { usePlacementStore } from '../../store/usePlacementStore'
+import { useTranslation } from '../../hooks/useTranslation'
 
 export function PlacementOverlay() {
+  const { t } = useTranslation()
   // Get state directly from store
   const { isEditing, cancelPlacement } = usePlacementStore()
 
@@ -10,7 +12,7 @@ export function PlacementOverlay() {
       <div className="placement-message">
         {isEditing
           ? 'Edit Mode: Click new position'
-          : 'Click to select point'}
+          : t.placement.ClickToSelectPoint}
       </div>
       <button
         className="cancel-placement-btn"
@@ -19,7 +21,7 @@ export function PlacementOverlay() {
           cancelPlacement()
         }}
       >
-        Cancel
+        {t.placement.cancel}
       </button>
     </div>
   )

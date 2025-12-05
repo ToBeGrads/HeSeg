@@ -1,4 +1,6 @@
 // src/components/Sidebar.tsx
+import { AiFillQuestionCircle } from 'react-icons/ai'
+import { useNavigate } from 'react-router-dom'
 import './Sidebar.css'
 import AddStructureModal from './AddStructureModal'
 import { useState, useEffect } from 'react'
@@ -11,6 +13,8 @@ import { useVolumeStore } from '../store/useVolumeStore'
 import { useAuth } from '../hooks/useAuth'
 import { useLocation } from 'react-router-dom'
 import SidebarItem from './SidebarItem'
+import { LanguageSwitcher } from './LanguageSwitcher/LanguageSwitcher'
+import {useTranslation} from '../hooks/useTranslation'
 interface SidebarProps {
   ratingMode?: boolean
 }
@@ -18,6 +22,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
   // ========================
   // GET STATE FROM STORES
   // ========================
+  const navigate = useNavigate()
   const { sidebarVisible, toggleSidebar } = useAppStore()
   // const structures = useStructureStore((state) => state.structures)
   const mystructures = useStructureStore((state) => state.mystructures)
@@ -28,6 +33,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const location = useLocation();
   const { patient_id } = location.state || {};
+  const {t} = useTranslation()
   // ========================
   // EFFECTS
   // ========================
@@ -35,6 +41,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
   const { token } = useAuth()
   useEffect(() => {
     fetchMyStructures(token!, patient_id)
+    
     // load the masks 
 }, [])
   // }, [token])
@@ -91,7 +98,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
         </div>
 
         <div className='sidebar-header'>
-          <h5>Structures</h5>
+          <h5>{t.sidebar.structures}</h5>
           <button className="add-st" onClick={handleAddStructure}>
             +
           </button>
@@ -108,6 +115,20 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
             />
           ))}
         </div>
+        {/* Language Switcher at bottom */}
+      
+        <div className="sidebar-footer">
+        {sidebarVisible && (
+        <LanguageSwitcher position="sidebar-bottom" />
+      )}
+      <button 
+            className="app-header-btn"
+            onClick={() => navigate('/Documentation')}
+            title={t.header.help}
+          >
+            <AiFillQuestionCircle size={20} />
+          </button>
+          </div>
       </aside>
 
       <AddStructureModal
@@ -116,6 +137,8 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
         onAdd={handleAddNewStructure}
         existingColors={existingColors}
       />
+      
+
     </>
   )
 }

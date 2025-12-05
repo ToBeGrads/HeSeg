@@ -3,8 +3,11 @@ import { useState } from 'react'
 import { Structure3DView } from './Structure3DView'
 import { FiMaximize2, FiMinimize2, FiSliders } from 'react-icons/fi'
 import './ThreeDView.css'
+import { useTranslation } from '../../hooks/useTranslation'
+
 
 export function ThreeDView() {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showControls, setShowControls] = useState(false)
   
@@ -28,20 +31,20 @@ export function ThreeDView() {
     <div className={`threed-view ${isExpanded ? 'expanded' : ''}`}>
       {/* Header */}
       <div className="threed-header">
-        <span className="threed-title">3D Structure View</span>
+        <span className="threed-title">{t.advancedMRI.threeD}</span>
         
         <div className="threed-controls">
           <button 
             className={`control-btn ${showControls ? 'active' : ''}`}
             onClick={() => setShowControls(!showControls)}
-            title="Display Options"
+            title={t.reconstruction.displayOptions}
           >
             <FiSliders size={14} />
           </button>
           <button 
             className="control-btn"
             onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? 'Minimize' : 'Maximize'}
+            title={isExpanded ? t.reconstruction.minimize : t.reconstruction.maximize}
           >
             {isExpanded ? <FiMinimize2 size={14} /> : <FiMaximize2 size={14} />}
           </button>
@@ -53,35 +56,35 @@ export function ThreeDView() {
         <div className="threed-controls-panel">
           {/* Render Mode */}
           <div className="control-section">
-            <span className="control-section-title">Render Mode</span>
+            <span className="control-section-title">{t.reconstruction.renderMode}</span>
             <div className="render-mode-buttons">
               <button 
                 className={`render-mode-btn ${displayOptions.renderMode === 'surface' ? 'active' : ''}`}
                 onClick={() => updateOption('renderMode', 'surface')}
-                title="Smooth surface rendering"
+                title={t.reconstruction.smoothSurfaceRendering}
               >
-                Surface
+                {t.reconstruction.surface}
               </button>
               <button 
                 className={`render-mode-btn ${displayOptions.renderMode === 'cubes' ? 'active' : ''}`}
                 onClick={() => updateOption('renderMode', 'cubes')}
-                title="Show individual voxels as cubes"
+                title={t.reconstruction.ShowIndividualVoxelsAsCubes}
               >
-                Cubes
+                {t.reconstruction.cubes}
               </button>
               <button 
                 className={`render-mode-btn ${displayOptions.renderMode === 'points' ? 'active' : ''}`}
                 onClick={() => updateOption('renderMode', 'points')}
-                title="Point cloud rendering"
+                title={t.reconstruction.pointCloudRendering}
               >
-                Points
+                {t.reconstruction.points}
               </button>
             </div>
           </div>
 
           {/* Display Options */}
           <div className="control-section">
-            <span className="control-section-title">Display Options</span>
+            <span className="control-section-title">{t.reconstruction.displayOptions}</span>
             <div className="checkbox-grid">
               <label className="checkbox-label">
                 <input 
@@ -89,7 +92,7 @@ export function ThreeDView() {
                   checked={displayOptions.showAxes}
                   onChange={(e) => updateOption('showAxes', e.target.checked)}
                 />
-                <span>Show Axes</span>
+                <span>{t.reconstruction.showAxes}</span>
               </label>
               <label className="checkbox-label">
                 <input 
@@ -97,7 +100,7 @@ export function ThreeDView() {
                   checked={displayOptions.showGrid}
                   onChange={(e) => updateOption('showGrid', e.target.checked)}
                 />
-                <span>Show Grid</span>
+                <span>{t.reconstruction.showGrid}</span>
               </label>
               <label className="checkbox-label">
                 <input 
@@ -105,7 +108,7 @@ export function ThreeDView() {
                   checked={displayOptions.showBoundingBox}
                   onChange={(e) => updateOption('showBoundingBox', e.target.checked)}
                 />
-                <span>Bounding Box</span>
+                <span>{t.reconstruction.boundingBox}</span>
               </label>
               {/** 
               <label className="checkbox-label">
@@ -123,22 +126,23 @@ export function ThreeDView() {
                   checked={displayOptions.showBrainOutline}
                   onChange={(e) => updateOption('showBrainOutline', e.target.checked)}
                 />
-                <span>Brain Outline</span>
+                <span>{t.reconstruction.brainOutline}</span>
               </label>
+              
               <label className="checkbox-label">
                 <input 
                   type="checkbox" 
                   checked={displayOptions.wireframe}
                   onChange={(e) => updateOption('wireframe', e.target.checked)}
                 />
-                <span>Wireframe</span>
+                <span>{t.reconstruction.wireframe}</span>
               </label>
             </div>
           </div>
 
           {/* Opacity Slider */}
           <div className="control-section">
-            <span className="control-section-title">Structure Opacity</span>
+            <span className="control-section-title">{t.reconstruction.structureOpacity}</span>
             <div className="slider-row">
               <input
                 type="range"

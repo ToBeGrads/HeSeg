@@ -5,6 +5,7 @@ import { AVAILABLE_COLORS } from '../utils/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useEffect } from 'react'
 import { useStructureStore } from '../store/useStructureStore'
+import { useTranslation } from '../hooks/useTranslation'
 
 interface AddStructureModalProps {
   isOpen: boolean
@@ -19,6 +20,7 @@ function AddStructureModal({
   onAdd,
   existingColors,
 }: AddStructureModalProps) {
+  const { t } = useTranslation();
 
   const structures = useStructureStore((state) => state.structures)
   // Filter out already added titles
@@ -71,7 +73,7 @@ function AddStructureModal({
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Add New Structure</h3>
+          <h3>{t.addStructureModal.addNewStructure}</h3>
           <button className="close-btn" onClick={handleClose}>
             <FiX size={20} />
           </button>
@@ -100,13 +102,13 @@ function AddStructureModal({
                   </option>
                 ))
               ) : (
-                <option disabled>No structures left</option>
+                <option disabled>{t.addStructureModal.noStructuresLeft}</option>
               )}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Choose Color</label>
+            <label>{t.addStructureModal.chooseColor}</label>
             <div className="color-grid">
               {AVAILABLE_COLORS.map((color) => {
                 const isUsed = existingColors.includes(color)
@@ -126,7 +128,7 @@ function AddStructureModal({
                     }}
 
                     disabled={isUsed}
-                    title={isUsed ? 'Color already in use' : `Select ${color}`}
+                    title={isUsed ? t.addStructureModal.ColorAlreadyInUse : `${t.addStructureModal.select} ${color}`}
                   >
                     {isSelected && <span className="checkmark">✓</span>}
                   </button>
@@ -139,10 +141,10 @@ function AddStructureModal({
 
           <div className="modal-actions">
             <button type="button" className="cancel-btn" onClick={handleClose}>
-              Cancel
+              {t.addStructureModal.cancel}
             </button>
             <button type="submit" className="add-btn" disabled={availableTitles.length === 0}>
-              Add Structure
+              {t.addStructureModal.addStructure}
             </button>
           </div>
         </form>

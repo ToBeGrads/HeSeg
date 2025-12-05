@@ -5,6 +5,7 @@ import { useVolumeStore } from '../../store/useVolumeStore'
 import { useViewerStore } from '../../store/useViewerStore'
 import { FiX, FiMaximize2, FiMinimize2 } from 'react-icons/fi'
 import './Mini3DNavigator.css'
+import { useTranslation } from '../../hooks/useTranslation'
 
 interface Mini3DNavigatorProps {
   visible?: boolean
@@ -12,6 +13,7 @@ interface Mini3DNavigatorProps {
 }
 
 export function Mini3DNavigator({ visible = true, onClose }: Mini3DNavigatorProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const niivueRef = useRef<Niivue | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -66,7 +68,7 @@ const dragStart = useRef({ x: 0, y: 0, startRight: 0, startBottom: 0 })
   useEffect(() => {
     if (!niivueRef.current || !volumeData) return
 
-    const nv = niivueRef.current
+    const nBv = niivueRef.current
     const dims = volumeData.dims
 
     // Calculate normalized positions (0-1)
@@ -75,8 +77,8 @@ const dragStart = useRef({ x: 0, y: 0, startRight: 0, startBottom: 0 })
     const fracZ = currentSlices.axial / (dims[2] - 1)
 
     // Update crosshair position
-    nv.scene.crosshairPos = [fracX, fracY, fracZ]
-    nv.drawScene()
+    nBv.scene.crosshairPos = [fracX, fracY, fracZ]
+    nBv.drawScene()
 
     console.log('🎯 Mini 3D Navigator updated:', { fracX, fracY, fracZ })
   }, [currentSlices, volumeData])
@@ -140,17 +142,17 @@ const dragStart = useRef({ x: 0, y: 0, startRight: 0, startBottom: 0 })
     >
       {/* Header */}
       <div className="mini-3d-header">
-        <span className="mini-3d-title">3D Position</span>
+        <span className="mini-3d-title">{t.mini3D.DPosition}</span>
         <div className="mini-3d-controls">
           <button
             className="mini-3d-btn"
             onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? 'Minimize' : 'Maximize'}
+            title={isExpanded ? t.mini3D.minimize : t.mini3D.maximize}
           >
             {isExpanded ? <FiMinimize2 size={14} /> : <FiMaximize2 size={14} />}
           </button>
           {onClose && (
-            <button className="mini-3d-btn" onClick={onClose} title="Close">
+            <button className="mini-3d-btn" onClick={onClose} title={t.mini3D.close}>
               <FiX size={14} />
             </button>
           )}

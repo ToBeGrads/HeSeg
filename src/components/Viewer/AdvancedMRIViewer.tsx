@@ -24,17 +24,20 @@ import type { Orientation } from '../../types'
 import { useSliceExtraction } from './hooks/useSliceExtraction'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
+import { useTranslation } from '../../hooks/useTranslation'
+
 // type ViewType = 'axial' | 'coronal' | 'sagittal'
 
 function AdvancedMRIViewer() {
+
+  const { t } = useTranslation()
   // ========================
   // STORES
   // ========================
   const volumeData = useVolumeStore((state) => state.volumeData)
   const structures = useStructureStore((state) => state.mystructures)
 
-  const [singleViewOrientation, setSingleViewOrientation] = useState<Orientation>('axial')
-const [showOrientationDropdown, setShowOrientationDropdown] = useState(false)
+
   
   // const {
   //   structureId: placementStructureId
@@ -54,6 +57,7 @@ const [showOrientationDropdown, setShowOrientationDropdown] = useState(false)
     currentSlices,
     showSettings,
     setCurrentSlice,
+    singleViewOrientation,
   } = useViewerStore()
 
 
@@ -67,8 +71,7 @@ const [showOrientationDropdown, setShowOrientationDropdown] = useState(false)
   
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Add state to track the editing orientation
-const [editingOrientation, setEditingOrientation] = useState<'axial' | 'coronal' | 'sagittal'>('axial')
+
 
 // For now, use singleViewOrientation or viewOrientation as the editing orientation
 const currentEditingOrientation = viewMode === 'single' 
@@ -207,51 +210,6 @@ const currentEditingOrientation = viewMode === 'single'
 
 {viewMode === 'single' && (
   <div className="single-view">
-    {/* Orientation Selector */}
-    <div className="orientation-selector-container">
-      <button 
-        className="orientation-selector-btn"
-        onClick={() => setShowOrientationDropdown(!showOrientationDropdown)}
-      >
-        <span>{singleViewOrientation.charAt(0).toUpperCase() + singleViewOrientation.slice(1)}</span>
-        <FiChevronDown size={14} style={{ 
-          transform: showOrientationDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s ease'
-        }} />
-      </button>
-      
-      {showOrientationDropdown && (
-        <div className="orientation-dropdown">
-          <button 
-            className={`orientation-option ${singleViewOrientation === 'axial' ? 'active' : ''}`}
-            onClick={() => {
-              setSingleViewOrientation('axial')
-              setShowOrientationDropdown(false)
-            }}
-          >
-            Axial
-          </button>
-          <button 
-            className={`orientation-option ${singleViewOrientation === 'coronal' ? 'active' : ''}`}
-            onClick={() => {
-              setSingleViewOrientation('coronal')
-              setShowOrientationDropdown(false)
-            }}
-          >
-            Coronal
-          </button>
-          <button 
-            className={`orientation-option ${singleViewOrientation === 'sagittal' ? 'active' : ''}`}
-            onClick={() => {
-              setSingleViewOrientation('sagittal')
-              setShowOrientationDropdown(false)
-            }}
-          >
-            Sagittal
-          </button>
-        </div>
-      )}
-    </div>
     
     <SliceView
       orientation={singleViewOrientation}
@@ -269,8 +227,8 @@ const currentEditingOrientation = viewMode === 'single'
             <div className="quad-column" onClick={() => setViewOrientation('axial')}>
               <div className="quad-panel">
                 <div className="panel-header">
-                  <span>Axial</span>
-                  <FiMove size={12} />
+                  <span>{t.advancedMRI.axial}</span>
+                 
                 </div>
                 <SliceView
                   orientation="axial"
@@ -285,8 +243,8 @@ const currentEditingOrientation = viewMode === 'single'
             <div className="quad-column" onClick={() => setViewOrientation("coronal")}>
               <div className="quad-panel">
                 <div className="panel-header">
-                  <span>Coronal</span>
-                  <FiMove size={12} />
+                  <span>{t.advancedMRI.coronal}</span>
+                 
                 </div>
                 <SliceView
                   orientation="coronal"
@@ -302,8 +260,8 @@ const currentEditingOrientation = viewMode === 'single'
             <div className="quad-column" onClick={() => setViewOrientation("sagittal")}>
               <div className="quad-panel">
                 <div className="panel-header">
-                  <span>Sagittal</span>
-                  <FiMove size={12} />
+                  <span>{t.advancedMRI.sagittal}</span>
+                
                 </div>
                 <SliceView
                   orientation="sagittal"
@@ -318,10 +276,7 @@ const currentEditingOrientation = viewMode === 'single'
 
             <div className="quad-column">
               <div className="quad-panel">
-                <div className="panel-header">
-                  <span>3D</span>
-                  <FiMaximize2 size={12} />
-                </div>
+                
                 <ThreeDView />
               </div>
             </div>
@@ -330,7 +285,7 @@ const currentEditingOrientation = viewMode === 'single'
 
         {viewMode === '3d' && <ThreeDView />}
 
-        {viewMode === 'mosaic' && <MosaicView slices={allSlices.axial} />}
+        {viewMode === 'mosaic' && <MosaicView slices={allSlices} />}
       </div>
       {/* Mini 3D Navigator - Show in single view only */}
 {viewMode === 'single' && showMini3D && (
@@ -345,18 +300,19 @@ const currentEditingOrientation = viewMode === 'single'
   <button 
     className="mini-3d-toggle-btn"
     onClick={() => setShowMini3D(true)}
-    title="Show 3D Navigator"
+    title={t.mini3D.showDNavigator}
   >
     3D
   </button>
 )}
-
+      {/*
       <div className="shortcuts-info">
         {activeStructureId
           ? 'Editing: D=Draw | E=Erase | Ctrl+Z=Undo | Ctrl+Y=Redo | Enter=Complete'
           : 'Click: Crosshair | Right-Drag: Pan | Wheel: Navigate | Ctrl+Wheel: Zoom'
         }
       </div>
+      */}
 
       {activeStructureId && (
         <SegmentationToolbar

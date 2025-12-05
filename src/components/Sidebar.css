@@ -215,3 +215,36 @@
   outline: 2px solid rgb(29, 167, 127);
   outline-offset: 2px;
 }
+
+/* Add padding at bottom of sidebar content for language switcher */
+.sidebar-content {
+  flex: 1;
+  padding: 0.5rem;
+  padding-bottom: 2.5rem; /* Space for language switcher */
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Ensure sidebar has relative positioning for absolute child */
+.sidebar {
+  position: relative;
+}
+
+/* Hide language switcher when sidebar is collapsed */
+.sidebar.hidden .language-dropdown {
+  display: none;
+}
+
+.sidebar-footer{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: absolute;
+  gap: 0.5rem;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  padding: 0.3rem 0.4rem;
+  background-color: rgba(20, 20, 20, 0.432);
+
+}

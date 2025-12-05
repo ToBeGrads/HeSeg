@@ -8,6 +8,7 @@ import { useViewerStore } from '../store/useViewerStore'
 import { useStructureStore } from '../store/useStructureStore'
 import { useMaskStore } from '../store/useMaskStore'
 import { segment } from '../utils/functionalities'
+import {useTranslation} from '../hooks/useTranslation'
 
 
 interface SidebarItemProps {
@@ -22,6 +23,8 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   // GET STATE FROM STORES
   // ========================
   const jumpToCoordinate = useViewerStore((state) => state.jumpToCoordinate)
+
+  const {t} = useTranslation()
 
   // Get structure data
   // console.log("srtc id",structureId )
@@ -330,7 +333,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
         <button
           className={`sidebar-item-btn ${maskVisible ? 'active-mask' : ''}`}
           onClick={handleToggleMask}
-          title={maskVisible ? 'Hide mask' : 'Show mask'}
+          title={maskVisible ? t.sidebar.hideMask : t.sidebar.showMask}
           style={maskVisible ? {
             backgroundColor: `${color}33`,
             color: color
@@ -345,7 +348,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
             className={`sidebar-item-btn ${isEditing ? 'active-editing' : ''}`}
             onClick={handleStartEditing}
             disabled={isEditing}
-            title={isEditing ? 'Editing...' : 'Edit mask'}
+            title={isEditing ? t.sidebar.editing : t.sidebar.editMask}
             style={isEditing ? {
               backgroundColor: `${color}55`,
               color: color,
@@ -371,7 +374,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
             style={{
               background: `linear-gradient(90deg, #7ddb94 ${maskOpacity * 100}%, #ccc ${maskOpacity * 100}%)`,
             }}
-            title={`Opacity: ${Math.round(maskOpacity * 100)}%`} // Tooltip for better UX
+            title={`${t.sidebar.opacity}: ${Math.round(maskOpacity * 100)}%`} // Tooltip for better UX
           />
         </div>
       </div>
@@ -381,12 +384,12 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
           {/* Unsegmented Coordinates Section */}
           <div className="coordinates-section">
             <div className="coordinates-header">
-              <span>Active Points ({coordinates.filter(c => !c.hasSegmentation).length})</span>
+              <span>{t.sidebar.active} ({coordinates.filter(c => !c.hasSegmentation).length})</span>
               {/* Add Coordinate */}
               <button
                 className="sidebar-item-btn add-cor"
                 onClick={onAddCoordinate}
-                title="Add coordinate"
+                title={t.sidebar.addNew + " " + t.sidebar.coordinate}
               >
                 +
               </button>
@@ -415,7 +418,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                         <button
                           className="coord-action-btn"
                           disabled
-                          title="Generating..."
+                          title={t.sidebar.generating}
                         >
                           <div className="coord-loading-spinner" />
                         </button>
@@ -427,7 +430,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                             handleGenerateCoordinate(index)
                           }}
                           disabled={isGenerating}
-                          title="Generate segmentation"
+                          title={t.sidebar.generate}
                         >
                           <FiStar />
                         </button>
@@ -440,7 +443,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                             e.stopPropagation()
                             handleDeleteCoordinate(index)
                           }}
-                          title="Delete coordinate"
+                          title={t.sidebar.delete}
                         >
                           <FiTrash2 />
                         </button>
@@ -456,7 +459,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                                   confirmDelete(index)
                                 }}
                               >
-                                Yes
+                                {t.sidebar.yes}
                               </button>
                               <button
                                 className="delete-no"
@@ -465,7 +468,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                                   cancelDelete()
                                 }}
                               >
-                                No
+                                {t.sidebar.no}
                               </button>
                             </div>
                           </div>
@@ -476,7 +479,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                 )
               })
             ) : (
-              <div className="no-coordinates">No active points</div>
+              <div className="no-coordinates">{t.sidebar.noActivePoint}</div>
             )}
           </div>
 
@@ -489,7 +492,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                 style={{ cursor: 'pointer' }}
               >
                 <span>
-                  Segmented ({coordinates.filter(c => c.hasSegmentation).length})
+                  {t.sidebar.segmented} ({coordinates.filter(c => c.hasSegmentation).length})
                   {segmentedExpanded ? ' ▼' : ' ▶'}
                 </span>
               </div>

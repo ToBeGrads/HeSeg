@@ -6,6 +6,7 @@
     flex-direction: column;
     justify-content: center;
     overflow-x: hidden;
+    background-color: inherit;
     
     
 
@@ -17,6 +18,7 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    color: #fff;
     
 
 }

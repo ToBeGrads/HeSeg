@@ -235,7 +235,8 @@ export const useStructureStore = create<StructureState>()(
             {
               coordinates: coordinates,
               structure_id: structureId,
-              patient_id: localStorage.getItem("selected_patient")
+              patient_id: localStorage.getItem("selected_patient"),
+              modality: localStorage.getItem("modality")
             },
             {
               headers: {
