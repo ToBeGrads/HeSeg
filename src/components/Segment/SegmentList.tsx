@@ -60,7 +60,7 @@ export default function SegmentList() {
 
   return (
     <div className="segment-list-container">
-      <AppHeader />
+      <AppHeader link="/Documentation#sub-3" />
       <div className='segment-header'>
         <button className="segment-return-btn" onClick={() => navigate('main')}>
           <FaChevronLeft size={16} />

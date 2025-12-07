@@ -60,7 +60,7 @@ const initialViewState: ViewState = {
   }
   
   const initialState = {
-    viewMode: 'quad' as ViewMode,
+    viewMode: 'single' as ViewMode,
     singleViewOrientation: 'axial' as Orientation, 
     currentSlices: {
       axial: 0,

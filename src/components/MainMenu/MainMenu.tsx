@@ -16,7 +16,7 @@ export default function MainMenu({
   
   return (
     <div className="mainmenu-container">
-      <AppHeader showHelp={true} showLanguage={true} />
+      <AppHeader showHelp={true} showLanguage={true} link="/Documentation#sub-2" />
       
       <div className="mainmenu-content">
         <div className="mainmenu-grid">

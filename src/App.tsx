@@ -74,9 +74,9 @@ function App() {
           }
         />
         <Route path="/Documentation" element={
-          <RequireAuth token={token}>
+          
             <Documentation />
-          </RequireAuth>
+         
         }
         />
         <Route path="/rating" element={<MRIRatingLayout />} />

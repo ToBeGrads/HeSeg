@@ -22,7 +22,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   // ========================
   // GET STATE FROM STORES
   // ========================
-  const jumpToCoordinate = useViewerStore((state) => state.jumpToCoordinate)
+  const { jumpToCoordinate, setSingleViewOrientation, setViewMode, updateViewState } = useViewerStore()
 
   const {t} = useTranslation()
 
@@ -42,6 +42,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   const maskOpacity = useMaskStore((state) => state.maskOpacity[structureId] ?? 0.5)
   const setMaskOpacity = useMaskStore((state) => state.setMaskOpacity)
   const { currentSliceURL } = useMRI()
+  
 
 
 
@@ -53,6 +54,7 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null)
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
   const [segmentedExpanded, setSegmentedExpanded] = useState(false)
+
 
   // ========================
   // GUARDS
@@ -69,6 +71,23 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
   // ========================
   // HANDLERS
   // ========================
+  const getOrientationLabel = (orientation?: string) => {
+    switch (orientation) {
+      case 'axial': return 'Ax'
+      case 'coronal': return 'Co'
+      case 'sagittal': return 'Sa'
+      default: return '—'
+    }
+  }
+  
+  const getOrientationColor = (orientation?: string) => {
+    switch (orientation) {
+      case 'axial': return '#7ddb94'
+      case 'coronal': return '#64b5f6'
+      case 'sagittal': return '#ffb74d'
+      default: return '#888'
+    }
+  }
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded)
@@ -93,10 +112,14 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
     }
   }
 
-  const handleCoordinateClick = (coord: { x: number; y: number; z: number }) => {
-    // console.log('Jumping to coordinate:', coord)
-    // adding coordinates to the backend
+  const handleCoordinateClick = (coord: { x: number; y: number; z: number; orientation?: string }) => {
     jumpToCoordinate(coord)
+    if (coord.orientation) {
+      setSingleViewOrientation(coord.orientation as 'axial' | 'coronal' | 'sagittal')
+      setViewMode('single')
+
+      updateViewState(coord.orientation as 'axial' | 'coronal' | 'sagittal', { scale: 4 })
+    }
   }
 
   const handleDeleteCoordinate = (index: number) => {
@@ -408,7 +431,19 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="coord-info">
-                      <span className="coord-label">P{index + 1}:</span>
+                    <span className="coord-label">
+                          P{index + 1}
+                          <span 
+                            className="orientation-badge"
+                            style={{ 
+                              backgroundColor: getOrientationColor(coord.orientation),
+                              color: '#1a1a1a'
+                            }}
+                            title={coord.orientation || 'Unknown'}
+                          >
+                            {getOrientationLabel(coord.orientation)}
+                          </span>
+                        </span>
                       <span className="coord-values">
                         X:{coord.x} Y:{coord.y} Z:{coord.z}
                       </span>
@@ -511,7 +546,19 @@ function SidebarItem({ structureId, onAddCoordinate, ratingMode, titre }: Sideba
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="coord-info">
-                          <span className="coord-label">P{index + 1}:</span>
+                        <span className="coord-label">
+  P{index + 1}
+  <span 
+    className="orientation-badge"
+    style={{ 
+      backgroundColor: getOrientationColor(coord.orientation),
+      color: '#1a1a1a'
+    }}
+    title={coord.orientation || 'Unknown'}
+  >
+    {getOrientationLabel(coord.orientation)}
+  </span>
+</span>
                           <span className="coord-values">
                             X:{coord.x} Y:{coord.y} Z:{coord.z}
                           </span>

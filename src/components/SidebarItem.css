@@ -593,3 +593,22 @@
 .opacity-control input[type="range"]::-moz-range-thumb:hover {
   background: #4caf50;
 }
+
+/* Orientation Badge */
+.orientation-badge {
+  display: inline-block;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.55rem;
+  font-weight: bold;
+  margin-left: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+.coord-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}

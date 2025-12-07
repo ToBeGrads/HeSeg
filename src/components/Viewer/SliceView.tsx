@@ -116,6 +116,8 @@ export function SliceView({
   // ========================
   // EFFECTS
   // ========================
+
+  
   useEffect(() => {
     if (!slice?.canvas) return
     const dataUrl = slice.canvas.toDataURL("image/png")

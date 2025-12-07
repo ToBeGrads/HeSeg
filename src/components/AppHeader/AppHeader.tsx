@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 interface AppHeaderProps {
   showHelp?: boolean
   showLanguage?: boolean
+  link?: string
   
   onHelpClick?: () => void
 }
@@ -16,7 +17,8 @@ export function AppHeader({
   
   showHelp = true, 
   showLanguage = true,
-  onHelpClick 
+  link= '/Documentation',
+  
 }: AppHeaderProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -34,7 +36,7 @@ export function AppHeader({
         {showHelp && (
           <button 
             className="app-header-btn"
-            onClick={() => navigate('/Documentation')}
+            onClick={() => navigate(link)}
             title={t.header.help}
           >
             <AiFillQuestionCircle size={20} />

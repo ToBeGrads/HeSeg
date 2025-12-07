@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.1.0",
     "@lineiconshq/free-icons": "^1.0.3",
     "@lineiconshq/react-lineicons": "^1.0.5",
     "@niivue/niivue": "^0.62.1",

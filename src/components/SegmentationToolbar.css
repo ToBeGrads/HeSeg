@@ -7,7 +7,7 @@
   position: fixed;
   bottom: 2rem;
   left: 50%;
-  border: 2px solid;
+  border: 1px solid;
   border-radius: 16px;
   z-index: 1000;
   backdrop-filter: blur(10px);
@@ -84,16 +84,20 @@
   gap: 0.5rem;
   font-size: 0.85rem;
   font-weight: 500;
+  outline: none;
 }
 
 .segmentation-tool-btn:hover {
   background-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
+  outline: none;
+  border-color: inherit;
 }
 
 .segmentation-tool-btn.active {
   background-color: rgba(255, 255, 255, 0.25);
   border-color: inherit;
+  outline: none;
 }
 
 .segmentation-brush-group {
@@ -182,8 +186,10 @@
 
 .segmentation-action-btn:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  outline: none;
+  border-color: inherit;
 }
 
 .segmentation-action-btn:disabled {
@@ -197,6 +203,8 @@
 
 .segmentation-action-btn.next-btn:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.25);
+  border-color: inherit;
+  outline: none
 }
 
 .segmentation-action-btn.prev-btn {
@@ -205,6 +213,8 @@
 
 .segmentation-action-btn.prev-btn:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.25);
+  border-color: inherit;
+  outline: none
 }
 
 .segmentation-action-btn.complete-btn {
@@ -216,6 +226,8 @@
 .segmentation-action-btn.complete-btn:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: inherit;
+  outline: none
 }
 
 @media (max-width: 768px) {

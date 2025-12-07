@@ -881,21 +881,25 @@
 .cancel-placement-btn {
   background: linear-gradient(135deg, #ff6b6b, #ee5a52);
   color: white;
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  z-index: 20;
+ 
   padding: 0.5rem 1.5rem;
-  border-radius: 20px;
+  border-radius: 6px;
   font-size: 0.85rem;
   font-weight: bold;
   cursor: pointer;
   margin-top: 0.75rem;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
+  border: none;
 }
 
 .cancel-placement-btn:hover {
   background: linear-gradient(135deg, #ee5a52, #ff6b6b);
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+  opacity: 1;
+  outline: none;
+  border: none;
 }
 
 /* Fix text overflow */
@@ -1089,7 +1093,7 @@
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(0, 0, 0, 0.9);
-  border: 2px solid #7ddb94;
+  border: 1px solid #7ddb94;
   border-radius: 8px;
   padding: 0.75rem 1rem;
   z-index: 100;
@@ -1110,7 +1114,7 @@
 }
 
 .preview-label {
-  color: #7ddb94;
+  color: #ffffff;
   font-size: 0.85rem;
   font-weight: bold;
 }
@@ -1132,7 +1136,7 @@
 }
 
 .preview-btn {
-  padding: 0.5rem 1.5rem;
+  padding: 0.3rem 1rem;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1151,7 +1155,7 @@
 .preview-btn.save-btn:hover {
   background-color: #6bc47d;
   border-color: #6bc47d;
-  transform: translateY(-2px);
+  
   box-shadow: 0 4px 12px rgba(125, 219, 148, 0.4);
 }
 
@@ -1164,28 +1168,12 @@
 .preview-btn.cancel-btn:hover {
   background-color: rgba(255, 107, 107, 0.1);
   border-color: #ee5a52;
-  transform: translateY(-2px);
+
 }
 
 /* Simpler Cancel Button in Placement Mode */
-.cancel-placement-btn {
-  background-color: transparent;
-  color: #ff6b6b;
-  border: 2px solid #ff6b6b;
-  padding: 0.5rem 1.5rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 0.75rem;
-  transition: all 0.3s ease;
-}
 
-.cancel-placement-btn:hover {
-  background-color: rgba(255, 107, 107, 0.1);
-  border-color: #ee5a52;
-  transform: translateY(-2px);
-}
+
 
 /* Remove pin animation - Simple pulse */
 @keyframes pulsePreview {
@@ -1303,13 +1291,13 @@
 
 .placement-message {
   background-color: rgba(0, 0, 0, 0.9);
-  color: #7ddb94;
-  padding: 0.6rem 1.2rem;
+  color: #ffffff;
+  padding: 0.4rem 1rem;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  border: 2px solid #7ddb94;
+  border: 1px solid #7ddb94;
   margin-bottom: 0.75rem;
 }
 

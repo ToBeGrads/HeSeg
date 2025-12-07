@@ -294,6 +294,8 @@ export const translations = {
         overview: 'Interface Overview',
         performing: 'Performing Segmentation',
         structuresDoc: 'Structures',
+        contactUs: 'Contact Us',
+        contactHeSegSupportOnEmail: "Contact HeSeg support on email: heseg2025@gmail.com",
       },
       
       // Errors & Messages
@@ -600,6 +602,8 @@ export const translations = {
         overview: 'Aperçu de l\'interface',
         performing: 'Effectuer une segmentation',
         structuresDoc: 'Structures',
+        contactUs: 'Contactez-nous',
+        contactHeSegSupportOnEmail: "Contactez le support HeSeg par e-mail : heseg2025@gmail.com",
       },
       
 

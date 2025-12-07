@@ -123,7 +123,7 @@ function Sidebar({ ratingMode = false }: SidebarProps) {
       )}
       <button 
             className="app-header-btn"
-            onClick={() => navigate('/Documentation')}
+            onClick={() => navigate('/Documentation#viewer-1')}
             title={t.header.help}
           >
             <AiFillQuestionCircle size={20} />
